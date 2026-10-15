@@ -45,6 +45,11 @@
     <category>HardwareSettings</category>
   </categories>
   <releases>
+    <release version="1.0.0" date="2026-10-15">
+      <description>
+        <p>Primeira versão estável: 8 botões, macros, rolagem, perfis por aplicativo e por mouse, vários mouses, pacote RPM e tradução para inglês.</p>
+      </description>
+    </release>
     <release version="0.5.0" date="2026-10-15">
       <description>
         <p>Macros, rolagem, clique do meio e botões extras 6 a 8; vários mouses ao mesmo tempo, com perfil por mouse.</p>

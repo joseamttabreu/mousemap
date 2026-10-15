@@ -1,6 +1,6 @@
 [project]
 name = "mousemap"
-version = "0.5.0"
+version = "1.0.0"
 description = "Remapeia os botões extras do mouse no Linux (Wayland e X11), com interface GTK"
 readme = "README.md"
 requires-python = ">=3.12"
