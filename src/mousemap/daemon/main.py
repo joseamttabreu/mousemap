@@ -65,6 +65,10 @@ class Daemon:
         self._reload_timeout = None
         self.exit_code = 0
         self.dbus = None
+        self.app_id = ""              # aplicativo em foco, informado pela extensão do GNOME Shell
+        self.wm_class = ""
+        self.focus_source = False     # a extensão já informou o foco nesta execução
+        self._announced = ("", "")    # (app, perfil) do último ActiveAppChanged
 
     # --- ciclo de vida -------------------------------------------------------------------
 
@@ -104,11 +108,12 @@ class Daemon:
         self.loop.quit()
 
     def _set_state(self, state):
-        if state != self.state:
-            self.state = state
-            log({"running": f"Remapeamento ativo em {self.dev.path if self.dev else ''}.",
-                 "waiting_device": "Aguardando o mouse conectar...",
-                 "no_permission": "Sem permissão para o mouse ou para /dev/uinput."}.get(state, state))
+        if state == self.state:
+            return
+        self.state = state
+        log({"running": f"Remapeamento ativo em {self.dev.path if self.dev else ''}.",
+             "waiting_device": "Aguardando o mouse conectar...",
+             "no_permission": "Sem permissão para o mouse ou para /dev/uinput."}.get(state, state))
         self._publish_status()
 
     def _publish_status(self):
@@ -125,14 +130,15 @@ class Daemon:
     def _connect(self):
         if self.dev:
             return
+        target = device.pick(device.list_mice(), self.config.device)
+        if target is None:
+            self._set_state("waiting_device")
+            return
         try:
-            if self.keyboard is None:
+            if self.keyboard is None:  # só cria o teclado virtual quando há um mouse para remapear
                 self.keyboard = UInput({evdev.ecodes.EV_KEY: keys.KEYBOARD_KEYS}, name="mousemap teclado virtual")
                 self.engine = Engine(self.config, self.keyboard, on_learn=self._on_learn)
-            target = device.pick(device.list_mice(), self.config.device)
-            if target is None:
-                self._set_state("waiting_device")
-                return
+                self.engine.set_app(self.app_id, self.wm_class)
             dev = evdev.InputDevice(target.path)
         except (PermissionError, UInputError):
             self._set_state("no_permission")
@@ -234,6 +240,7 @@ class Daemon:
         device_changed = new.device != self.config.device
         self.config, self.error = new, ""
         log("Configuração recarregada.")
+        self._announce_app()  # o perfil do app em foco pode ter sido criado ou removido
         if device_changed:
             self._disconnect()
             self.state = "waiting_device"
@@ -243,6 +250,37 @@ class Daemon:
 
     # --- API para o D-Bus ----------------------------------------------------------------
 
+    @property
+    def profile(self):
+        if self.engine:
+            return self.engine.profile
+        return cfg.find_profile(self.config, self.app_id, self.wm_class)
+
+    def set_active_app(self, app_id, wm_class):
+        self.focus_source = True
+        self.app_id, self.wm_class = app_id.removesuffix(".desktop"), wm_class
+        if self.engine:
+            self.engine.set_app(self.app_id, self.wm_class)
+        self._announce_app()
+
+    def _announce_app(self):
+        current = (self.app_id, self.profile)
+        if current != self._announced:
+            self._announced = current
+            if self.dbus:
+                self.dbus.active_app_changed(*current)
+
+    def test_profile_action(self, app_id, trigger):
+        if trigger not in TRIGGERS:
+            return False, _("gatilho desconhecido: {}").format(trigger)
+        if app_id and app_id not in self.config.apps:
+            return False, _("perfil desconhecido: {}").format(app_id)
+        if not self.engine:
+            return False, _("serviço sem acesso ao /dev/uinput")
+        if not self.engine.test(trigger, profile=app_id):
+            return False, _("este botão está no comportamento padrão ou desativado")
+        return True, ""
+
     def status(self):
         return {
             "state": self.state,
@@ -251,6 +289,9 @@ class Daemon:
             "error": self.error,
             "config_path": str(self.config_path),
             "learning": bool(self.engine and self.engine.learn),
+            "app": self.app_id,
+            "profile": self.profile,
+            "focus_source": self.focus_source,
         }
 
     def list_devices(self):

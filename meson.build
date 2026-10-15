@@ -1,5 +1,5 @@
 project('mousemap',
-  version: '0.3.0',
+  version: '0.4.0',
   meson_version: '>= 1.0',
   license: 'MIT',
   license_files: 'LICENSE',
@@ -31,6 +31,7 @@ foreach exe : [['mousemap', 'mousemap.gui.main'], ['mousemapd', 'mousemap.daemon
 endforeach
 
 subdir('data')
+subdir('extension')
 subdir('po')
 
 test('unit',

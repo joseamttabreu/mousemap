@@ -20,13 +20,20 @@ def sentence(text):
 
 
 class ActionDialog(Adw.Dialog):
-    def __init__(self, trigger, action, on_save):
+    """Edita a ação de um gatilho. Com `inherited` (texto da ação global), é um perfil de aplicativo:
+    ganha a opção "Igual ao padrão", e on_save recebe None quando ela é escolhida.
+    """
+
+    def __init__(self, trigger, action, on_save, inherited=None, subtitle=""):
         super().__init__(title=TRIGGER_LABELS[trigger], content_width=480)
         self.on_save = on_save
+        self.inherited = inherited
+        self.kinds = (("inherit",) if inherited is not None else ()) + KINDS
         self.capturing = False
         self._mods = []
 
-        header = Adw.HeaderBar(show_start_title_buttons=False, show_end_title_buttons=False)
+        header = Adw.HeaderBar(show_start_title_buttons=False, show_end_title_buttons=False,
+                               title_widget=Adw.WindowTitle(title=TRIGGER_LABELS[trigger], subtitle=subtitle))
         cancel = Gtk.Button(label=_("Cancelar"))
         cancel.connect("clicked", lambda *_: self.close())
         self.save_button = Gtk.Button(label=_("Salvar"), css_classes=["suggested-action"])
@@ -35,8 +42,8 @@ class ActionDialog(Adw.Dialog):
         header.pack_end(self.save_button)
 
         group = Adw.PreferencesGroup()
-        self.kind_row = Adw.ComboRow(title=_("Tipo de ação"),
-                                     model=Gtk.StringList.new([KIND_LABELS[k] for k in KINDS]))
+        labels = [_("Igual ao padrão") if k == "inherit" else KIND_LABELS[k] for k in self.kinds]
+        self.kind_row = Adw.ComboRow(title=_("Tipo de ação"), model=Gtk.StringList.new(labels))
         self.preset_row = Adw.ComboRow(title=_("Ação"),
                                        model=Gtk.StringList.new([PRESETS[p][0] for p in PRESET_IDS]))
         self.keys_row = Adw.EntryRow(title=_("Atalho (ex.: ctrl+shift+t)"))
@@ -82,7 +89,10 @@ class ActionDialog(Adw.Dialog):
         self._update()
 
     def _fill(self, action):
-        self.kind_row.set_selected(KINDS.index(action.kind))
+        if action is None:  # perfil herdando o padrão
+            self.kind_row.set_selected(0)
+            return
+        self.kind_row.set_selected(self.kinds.index(action.kind))
         if action.kind == "preset" and action.value in PRESETS:
             self.preset_row.set_selected(PRESET_IDS.index(action.value))
         if action.kind == "keys":
@@ -93,11 +103,13 @@ class ActionDialog(Adw.Dialog):
             self.click_row.set_selected(CLICK_IDS.index(action.value))
 
     def current_kind(self):
-        return KINDS[self.kind_row.get_selected()]
+        return self.kinds[self.kind_row.get_selected()]
 
     def current_action(self):
         """Action válida ou levanta ValueError com a mensagem para o usuário."""
         kind = self.current_kind()
+        if kind == "inherit":
+            return None
         if kind in ("default", "none"):
             return Action(kind)
         value = {
@@ -124,7 +136,7 @@ class ActionDialog(Adw.Dialog):
             self.save_button.set_sensitive(False)
             return
         self.preview_row.remove_css_class("error")
-        self.preview_row.set_subtitle(action.describe())
+        self.preview_row.set_subtitle(action.describe() if action else _("Igual ao padrão: {}").format(self.inherited))
         self.save_button.set_sensitive(True)
 
     def _on_save(self, _button):

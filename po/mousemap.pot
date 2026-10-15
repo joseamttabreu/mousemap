@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: mousemap 0.3.0\n"
+"Project-Id-Version: mousemap 0.4.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-15 15:04-0300\n"
+"POT-Creation-Date: 2026-10-15 16:44-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -54,6 +54,7 @@ msgid "Botão avançar"
 msgstr ""
 
 #: src/mousemap/config.py:36 src/mousemap/config.py:105
+#: src/mousemap/gui/window.py:295
 msgid "Padrão"
 msgstr ""
 
@@ -69,7 +70,7 @@ msgstr ""
 msgid "Atalho de teclado"
 msgstr ""
 
-#: src/mousemap/config.py:40 src/mousemap/gui/action_dialog.py:48
+#: src/mousemap/config.py:40 src/mousemap/gui/action_dialog.py:55
 msgid "Comando"
 msgstr ""
 
@@ -106,53 +107,77 @@ msgstr ""
 msgid "Comando: {}"
 msgstr ""
 
-#: src/mousemap/config.py:135
-msgid "[buttons] deve ser uma tabela"
+#: src/mousemap/config.py:155
+msgid "[apps] deve ser uma tabela"
 msgstr ""
 
-#: src/mousemap/config.py:137
+#: src/mousemap/config.py:158
+msgid "[apps] tem um aplicativo com id vazio"
+msgstr ""
+
+#: src/mousemap/config.py:160
 #, python-brace-format
-msgid "versão de configuração não suportada: {}"
+msgid "apps.{}: deve ser uma tabela"
 msgstr ""
 
-#: src/mousemap/config.py:140
+#: src/mousemap/config.py:163
 #, python-brace-format
-msgid "chave desconhecida ignorada: {}"
+msgid "apps.{}.name deve ser texto"
 msgstr ""
 
-#: src/mousemap/config.py:142
+#: src/mousemap/config.py:169 src/mousemap/config.py:194
 #, python-brace-format
 msgid "botão desconhecido ignorado: {}"
 msgstr ""
 
-#: src/mousemap/config.py:152
+#: src/mousemap/config.py:187
+msgid "[buttons] deve ser uma tabela"
+msgstr ""
+
+#: src/mousemap/config.py:189
+#, python-brace-format
+msgid "versão de configuração não suportada: {}"
+msgstr ""
+
+#: src/mousemap/config.py:192
+#, python-brace-format
+msgid "chave desconhecida ignorada: {}"
+msgstr ""
+
+#: src/mousemap/config.py:204
 msgid "[settings] deve ser uma tabela"
 msgstr ""
 
-#: src/mousemap/config.py:155
+#: src/mousemap/config.py:207
 msgid "settings.device deve ser texto"
 msgstr ""
 
-#: src/mousemap/config.py:159
+#: src/mousemap/config.py:211
 #, python-brace-format
 msgid "settings.tilt_cooldown_ms deve ser um inteiro entre {} e {}"
 msgstr ""
 
-#: src/mousemap/config.py:173
+#: src/mousemap/config.py:227
 #, python-brace-format
 msgid "TOML inválido: {}"
 msgstr ""
 
-#: src/mousemap/daemon/main.py:261 src/mousemap/daemon/main.py:282
-msgid "serviço sem acesso ao /dev/uinput"
-msgstr ""
-
-#: src/mousemap/daemon/main.py:280
+#: src/mousemap/daemon/main.py:275 src/mousemap/daemon/main.py:321
 #, python-brace-format
 msgid "gatilho desconhecido: {}"
 msgstr ""
 
-#: src/mousemap/daemon/main.py:284
+#: src/mousemap/daemon/main.py:277
+#, python-brace-format
+msgid "perfil desconhecido: {}"
+msgstr ""
+
+#: src/mousemap/daemon/main.py:279 src/mousemap/daemon/main.py:302
+#: src/mousemap/daemon/main.py:323
+msgid "serviço sem acesso ao /dev/uinput"
+msgstr ""
+
+#: src/mousemap/daemon/main.py:281 src/mousemap/daemon/main.py:325
 msgid "este botão está no comportamento padrão ou desativado"
 msgstr ""
 
@@ -164,254 +189,382 @@ msgstr ""
 msgid "Digite um comando"
 msgstr ""
 
-#: src/mousemap/gui/action_dialog.py:30 src/mousemap/gui/window.py:323
+#: src/mousemap/gui/action_dialog.py:37 src/mousemap/gui/window.py:321
+#: src/mousemap/gui/window.py:462
 msgid "Cancelar"
 msgstr ""
 
-#: src/mousemap/gui/action_dialog.py:32
+#: src/mousemap/gui/action_dialog.py:39
 msgid "Salvar"
 msgstr ""
 
-#: src/mousemap/gui/action_dialog.py:38
+#: src/mousemap/gui/action_dialog.py:45
+msgid "Igual ao padrão"
+msgstr ""
+
+#: src/mousemap/gui/action_dialog.py:46
 msgid "Tipo de ação"
 msgstr ""
 
-#: src/mousemap/gui/action_dialog.py:40
+#: src/mousemap/gui/action_dialog.py:47
 msgid "Ação"
 msgstr ""
 
-#: src/mousemap/gui/action_dialog.py:42 src/mousemap/gui/action_dialog.py:167
+#: src/mousemap/gui/action_dialog.py:49 src/mousemap/gui/action_dialog.py:179
 msgid "Atalho (ex.: ctrl+shift+t)"
 msgstr ""
 
-#: src/mousemap/gui/action_dialog.py:44
+#: src/mousemap/gui/action_dialog.py:51
 msgid "Gravar atalho pressionando as teclas"
 msgstr ""
 
-#: src/mousemap/gui/action_dialog.py:50 src/mousemap/gui/action_dialog.py:141
+#: src/mousemap/gui/action_dialog.py:57 src/mousemap/gui/action_dialog.py:153
 msgid "Escolher programa"
 msgstr ""
 
-#: src/mousemap/gui/action_dialog.py:53
+#: src/mousemap/gui/action_dialog.py:60
 msgid "Clique"
 msgstr ""
 
-#: src/mousemap/gui/action_dialog.py:59
+#: src/mousemap/gui/action_dialog.py:66
 msgid "Resultado"
 msgstr ""
 
-#: src/mousemap/gui/action_dialog.py:158
+#: src/mousemap/gui/action_dialog.py:139 src/mousemap/gui/window.py:176
+#, python-brace-format
+msgid "Igual ao padrão: {}"
+msgstr ""
+
+#: src/mousemap/gui/action_dialog.py:170
 msgid "Pressione as teclas… (Esc cancela)"
 msgstr ""
 
-#: src/mousemap/gui/window.py:18
+#: src/mousemap/gui/app_picker.py:28
+msgid "Adicionar aplicativo"
+msgstr ""
+
+#: src/mousemap/gui/app_picker.py:32
+msgid "Buscar aplicativo"
+msgstr ""
+
+#: src/mousemap/gui/app_picker.py:51
+msgid "Outro"
+msgstr ""
+
+#: src/mousemap/gui/app_picker.py:52
+msgid ""
+"Id do aplicativo ou classe da janela, para apps que não aparecem na lista."
+msgstr ""
+
+#: src/mousemap/gui/app_picker.py:53
+msgid "Id ou classe da janela"
+msgstr ""
+
+#: src/mousemap/gui/window.py:20
 msgid "Integrado"
 msgstr ""
 
-#: src/mousemap/gui/window.py:67 src/mousemap/gui/window.py:277
+#: src/mousemap/gui/window.py:73 src/mousemap/gui/window.py:415
 msgid "Restaurar padrões"
 msgstr ""
 
-#: src/mousemap/gui/window.py:68
+#: src/mousemap/gui/window.py:74
 msgid "Abrir arquivo de configuração"
 msgstr ""
 
-#: src/mousemap/gui/window.py:69
+#: src/mousemap/gui/window.py:75
 msgid "Sobre o mousemap"
 msgstr ""
 
-#: src/mousemap/gui/window.py:71
+#: src/mousemap/gui/window.py:77
 msgid "Menu"
 msgstr ""
 
-#: src/mousemap/gui/window.py:78
+#: src/mousemap/gui/window.py:84
 msgid "Mouse"
 msgstr ""
 
-#: src/mousemap/gui/window.py:79 src/mousemap/gui/window.py:234
+#: src/mousemap/gui/window.py:85 src/mousemap/gui/window.py:371
 msgid "Automático"
 msgstr ""
 
-#: src/mousemap/gui/window.py:80
+#: src/mousemap/gui/window.py:86
 msgid "Dispositivo"
 msgstr ""
 
-#: src/mousemap/gui/window.py:85
-msgid "Botões"
+#: src/mousemap/gui/window.py:92
+msgid "Aplicativo"
 msgstr ""
 
-#: src/mousemap/gui/window.py:86
-msgid "Clique em um botão para escolher o que ele faz."
+#: src/mousemap/gui/window.py:93
+msgid ""
+"Cada aplicativo pode ter o próprio mapeamento; o que ele não define segue o "
+"padrão."
 msgstr ""
 
-#: src/mousemap/gui/window.py:87
-msgid "Identificar botão"
+#: src/mousemap/gui/window.py:94 src/mousemap/gui/window.py:184
+msgid "Todos os aplicativos"
 msgstr ""
 
-#: src/mousemap/gui/window.py:88
-msgid "Aperte um botão do mouse para encontrá-lo na lista"
+#: src/mousemap/gui/window.py:95
+msgid "Perfil"
 msgstr ""
 
-#: src/mousemap/gui/window.py:94
-msgid "Testar"
+#: src/mousemap/gui/window.py:98
+msgid "Remover este perfil"
 msgstr ""
 
-#: src/mousemap/gui/window.py:103
-msgid "Ajustes"
+#: src/mousemap/gui/window.py:102
+msgid "Adicionar aplicativo…"
+msgstr ""
+
+#: src/mousemap/gui/window.py:105
+msgid "Extensão do GNOME"
 msgstr ""
 
 #: src/mousemap/gui/window.py:106
+msgid "Ativar"
+msgstr ""
+
+#: src/mousemap/gui/window.py:112
+msgid "Botões"
+msgstr ""
+
+#: src/mousemap/gui/window.py:113
+msgid "Clique em um botão para escolher o que ele faz."
+msgstr ""
+
+#: src/mousemap/gui/window.py:114
+msgid "Identificar botão"
+msgstr ""
+
+#: src/mousemap/gui/window.py:115
+msgid "Aperte um botão do mouse para encontrá-lo na lista"
+msgstr ""
+
+#: src/mousemap/gui/window.py:121
+msgid "Testar"
+msgstr ""
+
+#: src/mousemap/gui/window.py:130
+msgid "Ajustes"
+msgstr ""
+
+#: src/mousemap/gui/window.py:133
 msgid "Repetição da inclinação"
 msgstr ""
 
-#: src/mousemap/gui/window.py:107
+#: src/mousemap/gui/window.py:134
 msgid "Intervalo, em milissegundos, com a roda mantida inclinada"
 msgstr ""
 
-#: src/mousemap/gui/window.py:110
+#: src/mousemap/gui/window.py:137
 msgid "Iniciar com a sessão"
 msgstr ""
 
-#: src/mousemap/gui/window.py:111
+#: src/mousemap/gui/window.py:138
 msgid "Liga o remapeamento automaticamente ao entrar"
 msgstr ""
 
-#: src/mousemap/gui/window.py:147
+#: src/mousemap/gui/window.py:188
 msgid "Aplicado"
 msgstr ""
 
-#: src/mousemap/gui/window.py:151
+#: src/mousemap/gui/window.py:192
 #, python-brace-format
 msgid "Não foi possível salvar: {}"
 msgstr ""
 
-#: src/mousemap/gui/window.py:155
+#: src/mousemap/gui/window.py:196
 msgid "Salvo. Será aplicado quando o serviço iniciar."
 msgstr ""
 
-#: src/mousemap/gui/window.py:161
+#: src/mousemap/gui/window.py:202
 #, python-brace-format
 msgid "Erro ao aplicar: {}"
 msgstr ""
 
-#: src/mousemap/gui/window.py:179
+#: src/mousemap/gui/window.py:233
 msgid "O serviço não está rodando."
 msgstr ""
 
-#: src/mousemap/gui/window.py:204
+#: src/mousemap/gui/window.py:261
 msgid "Não foi possível alterar a inicialização do serviço."
 msgstr ""
 
-#: src/mousemap/gui/window.py:212
+#: src/mousemap/gui/window.py:269
 #, python-brace-format
 msgid "Não foi possível identificar: {}"
 msgstr ""
 
-#: src/mousemap/gui/window.py:218
+#: src/mousemap/gui/window.py:275
 msgid "Aperte um botão extra do mouse…"
 msgstr ""
 
-#: src/mousemap/gui/window.py:227
+#: src/mousemap/gui/window.py:284
 #, python-brace-format
 msgid "Detectado: {}"
 msgstr ""
 
-#: src/mousemap/gui/window.py:237
+#: src/mousemap/gui/window.py:316
+#, python-brace-format
+msgid "Perfil criado: {}"
+msgstr ""
+
+#: src/mousemap/gui/window.py:319
+#, python-brace-format
+msgid "Remover o perfil de {}?"
+msgstr ""
+
+#: src/mousemap/gui/window.py:320
+msgid "Esse aplicativo volta a usar o mapeamento padrão."
+msgstr ""
+
+#: src/mousemap/gui/window.py:322
+msgid "Remover"
+msgstr ""
+
+#: src/mousemap/gui/window.py:333
+msgid "Perfil removido"
+msgstr ""
+
+#: src/mousemap/gui/window.py:340
+msgid "nenhum aplicativo"
+msgstr ""
+
+#: src/mousemap/gui/window.py:341
+#, python-brace-format
+msgid "Ativa · em foco: {}"
+msgstr ""
+
+#: src/mousemap/gui/window.py:343
+#, python-brace-format
+msgid "perfil: {}"
+msgstr ""
+
+#: src/mousemap/gui/window.py:349
+msgid "Não carregada. Se acabou de instalar, saia e entre na sessão."
+msgstr ""
+
+#: src/mousemap/gui/window.py:351
+#, python-brace-format
+msgid "Erro na extensão: {}"
+msgstr ""
+
+#: src/mousemap/gui/window.py:353
+msgid "Desativada: os perfis não são aplicados."
+msgstr ""
+
+#: src/mousemap/gui/window.py:355
+msgid "Ativa; aguardando o serviço."
+msgstr ""
+
+#: src/mousemap/gui/window.py:361
+msgid "Extensão ativada"
+msgstr ""
+
+#: src/mousemap/gui/window.py:363
+msgid "Não foi possível ativar. Saia e entre na sessão e tente de novo."
+msgstr ""
+
+#: src/mousemap/gui/window.py:374
 #, python-brace-format
 msgid "{} (desconectado)"
 msgstr ""
 
-#: src/mousemap/gui/window.py:251
+#: src/mousemap/gui/window.py:388
 msgid "Dispositivo alterado"
 msgstr ""
 
-#: src/mousemap/gui/window.py:262
+#: src/mousemap/gui/window.py:399
 msgid "Ativo"
 msgstr ""
 
-#: src/mousemap/gui/window.py:262
+#: src/mousemap/gui/window.py:399
 msgid "Desconectado"
 msgstr ""
 
-#: src/mousemap/gui/window.py:263
+#: src/mousemap/gui/window.py:400
 msgid "Sem permissão"
 msgstr ""
 
-#: src/mousemap/gui/window.py:264
+#: src/mousemap/gui/window.py:401
 msgid "nenhum mouse"
 msgstr ""
 
-#: src/mousemap/gui/window.py:266
+#: src/mousemap/gui/window.py:403
 msgid "Serviço parado"
 msgstr ""
 
-#: src/mousemap/gui/window.py:273
+#: src/mousemap/gui/window.py:411
 msgid "O serviço do mousemap não está rodando."
 msgstr ""
 
-#: src/mousemap/gui/window.py:273
+#: src/mousemap/gui/window.py:411
 msgid "Iniciar"
 msgstr ""
 
-#: src/mousemap/gui/window.py:275
+#: src/mousemap/gui/window.py:413
 msgid "Sem permissão para acessar o mouse."
 msgstr ""
 
-#: src/mousemap/gui/window.py:275
+#: src/mousemap/gui/window.py:413
 msgid "Configurar"
 msgstr ""
 
-#: src/mousemap/gui/window.py:277
+#: src/mousemap/gui/window.py:415
 #, python-brace-format
 msgid "Erro na configuração: {}"
 msgstr ""
 
-#: src/mousemap/gui/window.py:279
+#: src/mousemap/gui/window.py:417
 msgid "Mouse desconectado. Ligue-o ou escolha outro."
 msgstr ""
 
-#: src/mousemap/gui/window.py:291
+#: src/mousemap/gui/window.py:429
 msgid "Não foi possível iniciar o serviço. Ele está instalado?"
 msgstr ""
 
-#: src/mousemap/gui/window.py:301
+#: src/mousemap/gui/window.py:439
 msgid "Script de configuração não encontrado."
 msgstr ""
 
-#: src/mousemap/gui/window.py:306
+#: src/mousemap/gui/window.py:444
 #, python-brace-format
 msgid "Não foi possível executar: {}"
 msgstr ""
 
-#: src/mousemap/gui/window.py:313
+#: src/mousemap/gui/window.py:451
 msgid "Permissões configuradas."
 msgstr ""
 
-#: src/mousemap/gui/window.py:315
+#: src/mousemap/gui/window.py:453
 msgid "A configuração de permissões foi cancelada ou falhou."
 msgstr ""
 
-#: src/mousemap/gui/window.py:321
+#: src/mousemap/gui/window.py:459
 msgid "Restaurar padrões?"
 msgstr ""
 
-#: src/mousemap/gui/window.py:322
-msgid "Todos os botões voltam ao comportamento original do mouse."
+#: src/mousemap/gui/window.py:460
+msgid ""
+"Os botões do padrão voltam ao comportamento original do mouse. Os perfis de "
+"aplicativos são mantidos."
 msgstr ""
 
-#: src/mousemap/gui/window.py:324
+#: src/mousemap/gui/window.py:463
 msgid "Restaurar"
 msgstr ""
 
-#: src/mousemap/gui/window.py:334
+#: src/mousemap/gui/window.py:473
 msgid "Padrões restaurados"
 msgstr ""
 
-#: src/mousemap/gui/window.py:339
+#: src/mousemap/gui/window.py:478
 msgid "Arquivo criado"
 msgstr ""
 
-#: src/mousemap/gui/window.py:344
+#: src/mousemap/gui/window.py:483
 msgid "Escolha o que cada botão extra do mouse faz."
 msgstr ""
 

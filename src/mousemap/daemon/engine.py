@@ -10,7 +10,7 @@ from collections import Counter
 
 from evdev import ecodes as e
 
-from ..config import TRIGGERS
+from ..config import TRIGGERS, find_profile
 
 BUTTON_TRIGGERS = {e.BTN_SIDE: "side_back", e.BTN_EXTRA: "side_forward"}
 TILT_CODES = (e.REL_HWHEEL, e.REL_HWHEEL_HI_RES)
@@ -35,12 +35,28 @@ class Engine:
         self._active = {}         # botão físico pressionado -> ação compilada no momento do aperto
         self._held = Counter()    # teclas que nós mantemos pressionadas
         self._last_tilt = float("-inf")
+        self._app = ("", "")      # (id do aplicativo em foco, classe da janela)
+        self.profile = ""         # perfil vigente ("" = padrão global)
         self.configure(config)
 
     def configure(self, config):
-        actions = {t: config.buttons[t].compile() for t in TRIGGERS}  # valida antes de trocar
-        self.actions = actions
+        # Compila tudo antes de trocar: um erro não deixa o motor pela metade.
+        profiles = {key: {t: a.compile() for t, a in config.actions_for(key).items()} for key in config.apps}
+        base = {t: a.compile() for t, a in config.actions_for("").items()}
+        self._config, self._base, self._profiles = config, base, profiles
         self.cooldown = config.tilt_cooldown_ms / 1000
+        self._select()
+
+    def set_app(self, app_id, wm_class):
+        """Aplicativo em foco mudou. Retorna o perfil vigente."""
+        self._app = (app_id, wm_class)
+        return self._select()
+
+    def _select(self):
+        # Botões já pressionados guardam a ação do aperto (_active): trocar aqui não prende nada.
+        self.profile = find_profile(self._config, *self._app)
+        self.actions = self._profiles.get(self.profile, self._base)
+        return self.profile
 
     # --- entrada -------------------------------------------------------------------------
 
@@ -89,9 +105,13 @@ class Engine:
 
     # --- ações ---------------------------------------------------------------------------
 
-    def test(self, trigger):
-        """Executa a ação do gatilho uma vez. Retorna False se não houver o que executar."""
-        action = self.actions[trigger]
+    def test(self, trigger, profile=None):
+        """Executa a ação do gatilho uma vez (no perfil indicado ou no vigente).
+
+        Retorna False se não houver o que executar; KeyError se o perfil não existir.
+        """
+        actions = self.actions if profile is None else (self._profiles[profile] if profile else self._base)
+        action = actions[trigger]
         if action[0] in ("default", "none"):
             return False
         self._tap(action)

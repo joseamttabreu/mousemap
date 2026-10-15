@@ -45,6 +45,11 @@
     <category>HardwareSettings</category>
   </categories>
   <releases>
+    <release version="0.4.0" date="2026-10-15">
+      <description>
+        <p>Perfis por aplicativo: cada aplicativo pode ter o próprio mapeamento, com a extensão do GNOME Shell.</p>
+      </description>
+    </release>
     <release version="0.3.0" date="2026-10-15">
       <description>
         <p>Empacotamento RPM, tradução para inglês e ícone próprio.</p>

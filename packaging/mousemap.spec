@@ -1,5 +1,5 @@
 Name:           mousemap
-Version:        0.3.0
+Version:        0.4.0
 Release:        1%{?dist}
 Summary:        Remap extra mouse buttons on Linux, with a GTK interface
 
@@ -24,6 +24,8 @@ Requires:       libadwaita
 Requires:       polkit
 Requires:       systemd-udev
 Requires:       hicolor-icon-theme
+# Perfis por aplicativo dependem da extensão do GNOME Shell
+Recommends:     gnome-shell
 
 %description
 mousemap changes what the extra mouse buttons do (wheel tilt and side buttons)
@@ -76,7 +78,12 @@ udevadm trigger --subsystem-match=input --property-match=ID_INPUT_MOUSE=1 >/dev/
 %{_datadir}/polkit-1/actions/io.github.mousemap.policy
 %{_udevrulesdir}/70-mousemap.rules
 %{_modulesloaddir}/mousemap.conf
+%{_datadir}/gnome-shell/extensions/mousemap@joseamttabreu.github.com/
 
 %changelog
+* Thu Oct 15 2026 joseamttabreu <jose@ouroborosbr.com> - 0.4.0-1
+- Perfis por aplicativo com extensão do GNOME Shell
+- mousemapd --diagnose
+
 * Thu Oct 15 2026 joseamttabreu <jose@ouroborosbr.com> - 0.3.0-1
 - Empacotamento RPM, tradução para inglês e ícone próprio

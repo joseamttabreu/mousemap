@@ -12,6 +12,8 @@ class DaemonClient(GObject.Object):
         # dict com o status, ou None quando o serviço não está no barramento
         "status-changed": (GObject.SignalFlags.RUN_FIRST, None, (object,)),
         "trigger-pressed": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+        # (id do aplicativo em foco, perfil vigente — "" = padrão global)
+        "active-app-changed": (GObject.SignalFlags.RUN_FIRST, None, (str, str)),
     }
 
     def __init__(self):
@@ -60,9 +62,17 @@ class DaemonClient(GObject.Object):
     def test_action(self, trigger):
         return self.call("TestAction", GLib.Variant("(s)", (trigger,)))
 
+    def test_profile_action(self, app_id, trigger):
+        return self.call("TestProfileAction", GLib.Variant("(ss)", (app_id, trigger)))
+
     def _on_signal(self, _proxy, _sender, name, params):
         if name == "StatusChanged":
             self.status = params.unpack()[0]
             self.emit("status-changed", self.status)
         elif name == "TriggerPressed":
             self.emit("trigger-pressed", params.unpack()[0])
+        elif name == "ActiveAppChanged":
+            if self.status is not None:
+                self.status["app"], self.status["profile"] = params.unpack()
+                self.status["focus_source"] = True
+            self.emit("active-app-changed", *params.unpack())

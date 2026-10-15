@@ -117,11 +117,63 @@ class Action:
 
 
 @dataclass
+class AppProfile:
+    """Perfil de um aplicativo: só os gatilhos que ele sobrescreve; o resto herda [buttons]."""
+    name: str = ""
+    buttons: dict = field(default_factory=dict)
+
+
+@dataclass
 class Config:
     device: str = ""
     tilt_cooldown_ms: int = DEFAULT_COOLDOWN
     buttons: dict = field(default_factory=lambda: {t: Action() for t in TRIGGERS})
+    apps: dict = field(default_factory=dict)  # id do aplicativo -> AppProfile
     warnings: list = field(default_factory=list, compare=False)
+
+    def actions_for(self, profile=""):
+        """Ações efetivas de um perfil ("" = padrão global)."""
+        merged = dict(self.buttons)
+        if profile in self.apps:
+            merged.update(self.apps[profile].buttons)
+        return merged
+
+
+def find_profile(config, app_id="", wm_class=""):
+    """Chave do perfil para o aplicativo em foco: pelo id e, se não houver, pela classe da janela."""
+    by_lower = {key.lower(): key for key in config.apps}
+    for candidate in (app_id, wm_class):
+        if candidate and candidate.lower() in by_lower:
+            return by_lower[candidate.lower()]
+    return ""
+
+
+def _parse_apps(data, warnings):
+    apps = {}
+    table = data.get("apps", {})
+    if not isinstance(table, dict):
+        raise ConfigError(_("[apps] deve ser uma tabela"))
+    for app_id, entry in table.items():
+        if not app_id.strip():
+            raise ConfigError(_("[apps] tem um aplicativo com id vazio"))
+        if not isinstance(entry, dict):
+            raise ConfigError(_("apps.{}: deve ser uma tabela").format(app_id))
+        name = entry.get("name", "")
+        if not isinstance(name, str):
+            raise ConfigError(_("apps.{}.name deve ser texto").format(app_id))
+        profile = AppProfile(name=name)
+        for key, spec in entry.items():
+            if key == "name":
+                continue
+            if key not in TRIGGERS:
+                warnings.append(_("botão desconhecido ignorado: {}").format(f"apps.{app_id}.{key}"))
+                continue
+            try:
+                profile.buttons[key] = Action.parse(spec)
+            except ValueError as err:
+                raise ConfigError(f"apps.{app_id}.{key}: {err}") from None
+        apps[app_id] = profile
+    return apps
 
 
 def parse(data):
@@ -130,7 +182,7 @@ def parse(data):
     if version == 1:
         source, known = data, {"settings", *TRIGGERS}
     elif version == VERSION:
-        source, known = data.get("buttons", {}), {"version", "settings", "buttons"}
+        source, known = data.get("buttons", {}), {"version", "settings", "buttons", "apps"}
         if not isinstance(source, dict):
             raise ConfigError(_("[buttons] deve ser uma tabela"))
     else:
@@ -158,6 +210,8 @@ def parse(data):
     if not isinstance(cooldown, int) or isinstance(cooldown, bool) or not lo <= cooldown <= hi:
         raise ConfigError(_("settings.tilt_cooldown_ms deve ser um inteiro entre {} e {}").format(lo, hi))
     config.device, config.tilt_cooldown_ms = device, cooldown
+    if version == VERSION:
+        config.apps = _parse_apps(data, config.warnings)
     return config
 
 
@@ -190,6 +244,11 @@ def dumps(config):
         "[buttons]",
     ]
     lines += [f"{t} = {config.buttons[t].to_toml()}" for t in TRIGGERS]
+    for app_id, profile in config.apps.items():
+        lines += ["", f"[apps.{json.dumps(app_id, ensure_ascii=False)}]"]
+        if profile.name:
+            lines.append(f"name = {json.dumps(profile.name, ensure_ascii=False)}")
+        lines += [f"{t} = {profile.buttons[t].to_toml()}" for t in TRIGGERS if t in profile.buttons]
     return "\n".join(lines) + "\n"
 
 

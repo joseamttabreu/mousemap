@@ -9,9 +9,11 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 from .. import APP_ID, __version__
 from .. import config as cfg
 from ..i18n import _
-from ..config import COOLDOWN_RANGE, TRIGGER_LABELS, TRIGGERS, Action
+from ..config import COOLDOWN_RANGE, TRIGGER_LABELS, TRIGGERS, Action, AppProfile
 from .action_dialog import ActionDialog
+from .app_picker import AppPickerDialog, app_name
 from .daemon_client import DaemonClient
+from .shell_extension import STATE_ERROR, ShellExtension
 
 SERVICE = "mousemapd.service"
 RETRY_MS = 2500  # o daemon tenta reconectar a cada 2 s
@@ -44,6 +46,9 @@ class MainWindow(Adw.ApplicationWindow):
         self._updating = False
         self._save_timeout = None
         self._device_names = [""]
+        self.profile = ""             # perfil exibido ("" = padrão de todos os aplicativos)
+        self._profile_keys = [""]
+        self.extension = ShellExtension()
 
         provider = Gtk.CssProvider()
         provider.load_from_string(CSS)
@@ -53,6 +58,7 @@ class MainWindow(Adw.ApplicationWindow):
         self._load_config()
         self.client.connect("status-changed", self._on_status)
         self.client.connect("trigger-pressed", self._on_trigger)
+        self.client.connect("active-app-changed", lambda *_: self._update_extension_row(query_shell=False))
         self.client.refresh()
 
     # --- construção ------------------------------------------------------------------------
@@ -81,6 +87,27 @@ class MainWindow(Adw.ApplicationWindow):
         self.device_row.connect("notify::selected", self._on_device_selected)
         mouse_group.add(self.device_row)
         page.add(mouse_group)
+
+        apps_group = Adw.PreferencesGroup(
+            title=_("Aplicativo"),
+            description=_("Cada aplicativo pode ter o próprio mapeamento; o que ele não define segue o padrão."))
+        self.profile_model = Gtk.StringList.new([_("Todos os aplicativos")])
+        self.profile_row = Adw.ComboRow(title=_("Perfil"), model=self.profile_model)
+        self.profile_row.connect("notify::selected", self._on_profile_selected)
+        self.remove_profile_button = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER,
+                                                tooltip_text=_("Remover este perfil"), css_classes=["flat"])
+        self.remove_profile_button.connect("clicked", self._on_remove_profile)
+        self.profile_row.add_suffix(self.remove_profile_button)
+        apps_group.add(self.profile_row)
+        add_row = Adw.ButtonRow(title=_("Adicionar aplicativo…"), start_icon_name="list-add-symbolic")
+        add_row.connect("activated", self._on_add_profile)
+        apps_group.add(add_row)
+        self.extension_row = Adw.ActionRow(title=_("Extensão do GNOME"), subtitle_selectable=True)
+        self.extension_button = Gtk.Button(label=_("Ativar"), valign=Gtk.Align.CENTER, visible=False)
+        self.extension_button.connect("clicked", self._on_enable_extension)
+        self.extension_row.add_suffix(self.extension_button)
+        apps_group.add(self.extension_row)
+        page.add(apps_group)
 
         buttons_group = Adw.PreferencesGroup(title=_("Botões"),
                                              description=_("Clique em um botão para escolher o que ele faz."))
@@ -138,11 +165,25 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _show_config(self):
         self._updating = True
+        if self.profile not in self.config.apps:
+            self.profile = ""
+        self._fill_profiles()
+        profile = self.config.apps.get(self.profile)
         for trigger, row in self.rows.items():
-            row.set_subtitle(GLib.markup_escape_text(self.config.buttons[trigger].describe()))
+            text = self.config.buttons[trigger].describe()
+            if profile is not None:
+                own = profile.buttons.get(trigger)
+                text = own.describe() if own else _("Igual ao padrão: {}").format(text)
+            row.set_subtitle(GLib.markup_escape_text(text))
         self.cooldown_row.set_value(self.config.tilt_cooldown_ms)
         self._fill_devices()
         self._updating = False
+
+    def profile_label(self, app_id):
+        if not app_id:
+            return _("Todos os aplicativos")
+        profile = self.config.apps.get(app_id)
+        return (profile.name if profile else "") or app_name(app_id) or app_id
 
     def _save(self, message=_("Aplicado")):
         try:
@@ -162,7 +203,15 @@ class MainWindow(Adw.ApplicationWindow):
         self._update_banner()
 
     def _set_action(self, trigger, action):
-        self.config.buttons[trigger] = action
+        """action None = o perfil volta a herdar o padrão."""
+        if self.profile:
+            buttons = self.config.apps[self.profile].buttons
+            if action is None:
+                buttons.pop(trigger, None)
+            else:
+                buttons[trigger] = action
+        else:
+            self.config.buttons[trigger] = action
         self._show_config()
         self._save()
 
@@ -171,15 +220,23 @@ class MainWindow(Adw.ApplicationWindow):
     def _on_row_activated(self, _row, trigger):
         if self.identify_button.get_active():
             self.identify_button.set_active(False)
-        ActionDialog(trigger, self.config.buttons[trigger],
-                     lambda action: self._set_action(trigger, action)).present(self)
+        save = lambda action: self._set_action(trigger, action)  # noqa: E731
+        if self.profile:
+            ActionDialog(trigger, self.config.apps[self.profile].buttons.get(trigger), save,
+                         inherited=self.config.buttons[trigger].describe(),
+                         subtitle=self.profile_label(self.profile)).present(self)
+        else:
+            ActionDialog(trigger, self.config.buttons[trigger], save).present(self)
 
     def _on_test(self, _button, trigger):
         if not self.client.available:
             self.toast(_("O serviço não está rodando."))
             return
         try:
-            ok, error = self.client.test_action(trigger)
+            if self.profile:
+                ok, error = self.client.test_profile_action(self.profile, trigger)
+            else:
+                ok, error = self.client.test_action(trigger)
         except GLib.Error as err:
             ok, error = False, err.message
         if not ok:
@@ -226,6 +283,86 @@ class MainWindow(Adw.ApplicationWindow):
         GLib.timeout_add(1200, lambda: row.remove_css_class("mm-highlight") or GLib.SOURCE_REMOVE)
         self.toast(_("Detectado: {}").format(TRIGGER_LABELS[trigger]))
 
+    # --- perfis por aplicativo ---------------------------------------------------------------
+
+    def _fill_profiles(self):
+        keys = [""] + sorted(self.config.apps, key=lambda k: self.profile_label(k).casefold())
+        was_updating, self._updating = self._updating, True
+        if keys != self._profile_keys:
+            self._profile_keys = keys
+            self.profile_model.splice(0, self.profile_model.get_n_items(), [self.profile_label(k) for k in keys])
+        self.profile_row.set_selected(keys.index(self.profile))
+        self.profile_row.set_subtitle(_("Padrão") if not self.profile else self.profile)
+        self.remove_profile_button.set_visible(bool(self.profile))
+        self._updating = was_updating
+
+    def _on_profile_selected(self, row, _pspec):
+        if self._updating:
+            return
+        self.profile = self._profile_keys[row.get_selected()]
+        self._show_config()
+
+    def _on_add_profile(self, _row):
+        AppPickerDialog(list(self.config.apps), self._add_profile).present(self)
+
+    def _add_profile(self, app_id, name):
+        if app_id in self.config.apps:
+            self.profile = app_id
+            self._show_config()
+            return
+        self.config.apps[app_id] = AppProfile(name=name)
+        self.profile = app_id
+        self._show_config()
+        self._save(_("Perfil criado: {}").format(self.profile_label(app_id)))
+
+    def _on_remove_profile(self, _button):
+        dialog = Adw.AlertDialog(heading=_("Remover o perfil de {}?").format(self.profile_label(self.profile)),
+                                 body=_("Esse aplicativo volta a usar o mapeamento padrão."))
+        dialog.add_response("cancel", _("Cancelar"))
+        dialog.add_response("remove", _("Remover"))
+        dialog.set_response_appearance("remove", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.connect("response", self._on_remove_response, self.profile)
+        dialog.present(self)
+
+    def _on_remove_response(self, _dialog, response, app_id):
+        if response != "remove" or app_id not in self.config.apps:
+            return
+        del self.config.apps[app_id]
+        self.profile = ""
+        self._show_config()
+        self._save(_("Perfil removido"))
+
+    def _update_extension_row(self, query_shell=True):
+        status = self.client.status or {}
+        show_button = False
+        if status.get("focus_source"):
+            app = status.get("app", "")
+            focus = (app_name(app) or app) if app else _("nenhum aplicativo")
+            text = _("Ativa · em foco: {}").format(focus)
+            if status.get("profile"):
+                text += " · " + _("perfil: {}").format(self.profile_label(status["profile"]))
+        elif not query_shell:
+            return
+        else:
+            info = self.extension.info()
+            if not info:
+                text = _("Não carregada. Se acabou de instalar, saia e entre na sessão.")
+            elif info.get("state") == STATE_ERROR:
+                text = _("Erro na extensão: {}").format(info.get("error", ""))
+            elif not info.get("enabled"):
+                text, show_button = _("Desativada: os perfis não são aplicados."), True
+            else:
+                text = _("Ativa; aguardando o serviço.")
+        self.extension_row.set_subtitle(GLib.markup_escape_text(text))
+        self.extension_button.set_visible(show_button)
+
+    def _on_enable_extension(self, _button):
+        if self.extension.enable():
+            self.toast(_("Extensão ativada"))
+        else:
+            self.toast(_("Não foi possível ativar. Saia e entre na sessão e tente de novo."))
+        GLib.timeout_add(1000, lambda: self._update_extension_row() or GLib.SOURCE_REMOVE)
+
     # --- dispositivos ------------------------------------------------------------------------
 
     def _fill_devices(self):
@@ -264,6 +401,7 @@ class MainWindow(Adw.ApplicationWindow):
             self.device_row.set_subtitle(f"{state} — {status.get('device') or _('nenhum mouse')}")
         else:
             self.device_row.set_subtitle(_("Serviço parado"))
+        self._update_extension_row()
         self._update_banner()
 
     def _update_banner(self):
@@ -319,7 +457,8 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _on_reset(self, *_args):
         dialog = Adw.AlertDialog(heading=_("Restaurar padrões?"),
-                                 body=_("Todos os botões voltam ao comportamento original do mouse."))
+                                 body=_("Os botões do padrão voltam ao comportamento original do mouse. "
+                                        "Os perfis de aplicativos são mantidos."))
         dialog.add_response("cancel", _("Cancelar"))
         dialog.add_response("reset", _("Restaurar"))
         dialog.set_response_appearance("reset", Adw.ResponseAppearance.DESTRUCTIVE)

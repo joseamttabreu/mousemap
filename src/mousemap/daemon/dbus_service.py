@@ -17,7 +17,15 @@ INTROSPECTION = f"""
       <arg type="s" direction="in" name="trigger"/>
       <arg type="b" direction="out" name="ok"/><arg type="s" direction="out" name="error"/>
     </method>
+    <method name="SetActiveApp">
+      <arg type="s" direction="in" name="app_id"/><arg type="s" direction="in" name="wm_class"/>
+    </method>
+    <method name="TestProfileAction">
+      <arg type="s" direction="in" name="app_id"/><arg type="s" direction="in" name="trigger"/>
+      <arg type="b" direction="out" name="ok"/><arg type="s" direction="out" name="error"/>
+    </method>
     <signal name="StatusChanged"><arg type="a{{sv}}" name="status"/></signal>
+    <signal name="ActiveAppChanged"><arg type="s" name="app_id"/><arg type="s" name="profile"/></signal>
     <signal name="TriggerPressed"><arg type="s" name="trigger"/></signal>
     <property name="Version" type="s" access="read"/>
   </interface>
@@ -76,6 +84,11 @@ class DBusService:
                 invocation.return_value(None)
             elif method == "TestAction":
                 invocation.return_value(GLib.Variant("(bs)", d.test_action(params.unpack()[0])))
+            elif method == "SetActiveApp":
+                d.set_active_app(*params.unpack())
+                invocation.return_value(None)
+            elif method == "TestProfileAction":
+                invocation.return_value(GLib.Variant("(bs)", d.test_profile_action(*params.unpack())))
             else:
                 invocation.return_dbus_error("org.freedesktop.DBus.Error.UnknownMethod", method)
         except Exception as err:  # um erro numa chamada não pode derrubar o daemon
@@ -87,6 +100,9 @@ class DBusService:
 
     def status_changed(self, status):
         self.emit("StatusChanged", "(a{sv})", (variant_dict(status),))
+
+    def active_app_changed(self, app_id, profile):
+        self.emit("ActiveAppChanged", "(ss)", (app_id, profile))
 
     def trigger_pressed(self, trigger):
         self.emit("TriggerPressed", "(s)", (trigger,))

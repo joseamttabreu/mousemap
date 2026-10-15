@@ -1,0 +1,10 @@
+{
+  "uuid": "mousemap@joseamttabreu.github.com",
+  "name": "mousemap",
+  "description": "Informa ao mousemap o aplicativo em foco, para os perfis por aplicativo dos botões do mouse. Envia só o id do aplicativo e a classe da janela, nunca o título.",
+  "shell-version": [
+    "50"
+  ],
+  "version-name": "@VERSION@",
+  "url": "https://github.com/joseamttabreu/mousemap"
+}

@@ -397,7 +397,7 @@ Cobertura mínima: 85% em `config`, `keys` e `engine`.
 | M1 Daemon v2 | Pacote `src/mousemap`, config v2, GLib loop, D-Bus, reconexão, watchdog | Feito em 15/10/2026 (0.2.0); bug aberto: BUG-001 |
 | M2 GUI MVP | Janela, diálogo, captura de atalho, identificar, testar, banners | Feito em 15/10/2026 (0.2.0) |
 | M3 Empacotamento | meson, RPM, Copr, traduções pt-BR/en | Feito em 15/10/2026 (0.3.0): RPM gerado e instalado/removido num contêiner Fedora 44 limpo. Pendente: publicar no Copr e testar udev/polkit/systemd numa máquina real instalada pelo RPM |
-| M4 Perfis por app | Extensão GNOME Shell + perfis na config e na GUI | Ação muda ao trocar de janela |
+| M4 Perfis por app | Extensão GNOME Shell + perfis na config e na GUI (§14) | Feito em 15/10/2026 (0.4.0); extensão testada com gjs e daemon real, falta validar dentro do GNOME Shell |
 | M5 Extras | Macros, mais botões, vários mouses | Conforme demanda |
 
 ## 13. Riscos e questões em aberto
@@ -421,3 +421,54 @@ Cobertura mínima: 85% em `config`, `keys` e `engine`.
 - Quais ações padrão vêm de fábrica? (protótipo: áreas de trabalho na inclinação, voltar/avançar nas laterais)
 - Publicar no Copr público ou manter só para uso interno?
 - Incluir o botão abaixo da roda (troca do modo da roda) — exige HID++ e hoje fica fora.
+
+## 14. M4 — Perfis por aplicativo
+
+Cada aplicativo pode ter o próprio mapeamento; o que ele não define vem do padrão global. Quem informa o aplicativo em foco é uma extensão do GNOME Shell, porque no Wayland nenhum outro processo tem essa informação.
+
+```
+ GNOME Shell                        sessão do usuário
+┌──────────────────────────┐  D-Bus   ┌──────────────────────────────────────┐
+│ extensão mousemap        │ ───────▶ │ mousemapd                            │
+│ foco mudou → id do app   │ SetActive│  ações = padrão global ⊕ perfil do app│
+│ (Shell.WindowTracker)    │   App    │  ActiveAppChanged ──▶ GUI            │
+└──────────────────────────┘          └──────────────────────────────────────┘
+```
+
+### Requisitos
+
+- **RF-50** A extensão envia ao daemon o id do aplicativo em foco (id do `.desktop` sem a extensão, ex.: `org.mozilla.firefox`) e a classe da janela (`WM_CLASS`), a cada mudança de foco. Nunca envia o título da janela.
+- **RF-51** A extensão reenvia o foco atual quando o daemon aparece no barramento (reinício, recarga) e envia vazio ao ser desativada.
+- **RF-52** Perfil é escolhido por id do aplicativo ou, se não houver, pela classe da janela; sem diferenciar maiúsculas. Sem perfil correspondente, vale o padrão global.
+- **RF-53** Gatilho ausente no perfil herda o padrão global; `"default"` no perfil significa explicitamente "comportamento original do mouse".
+- **RF-54** A troca de perfil no meio de um clique não prende nada: a soltura usa a ação vigente no aperto (mesma regra da recarga).
+- **RF-55** A GUI lista os perfis, adiciona um perfil escolhendo entre os aplicativos instalados (ou digitando o id), remove perfis e edita cada gatilho com a opção extra "Igual ao padrão".
+- **RF-56** A GUI mostra se a extensão está ativa e oferece ativá-la; sem a extensão, os perfis ficam salvos mas não são aplicados.
+- **RF-57** "Testar" em um perfil executa a ação daquele perfil, independentemente do aplicativo em foco.
+
+### Configuração
+
+Tabela opcional `[apps."<id>"]`, compatível com a versão 2 (daemons antigos ignoram com aviso):
+
+```toml
+[apps."org.mozilla.firefox"]
+name = "Firefox"                      # rótulo na GUI (opcional)
+tilt_left  = { keys = "ctrl+shift+TAB" }
+tilt_right = { keys = "ctrl+TAB" }
+# side_back e side_forward ausentes: herdam [buttons]
+```
+
+### D-Bus (acréscimos)
+
+| Membro | Tipo | Assinatura | Descrição |
+|---|---|---|---|
+| `SetActiveApp` | método | `(s app_id, s wm_class) → ()` | Chamado pela extensão; vazios = sem foco |
+| `TestProfileAction` | método | `(s app_id, s trigger) → (b, s)` | Executa a ação do gatilho naquele perfil |
+| `ActiveAppChanged` | sinal | `(s app_id, s profile)` | `profile` vazio = padrão global |
+| `GetStatus` | — | — | ganha `app` (s), `profile` (s) e `focus_source` (b: a extensão já informou o foco) |
+
+### Extensão
+
+- UUID `mousemap@joseamttabreu.github.com`, GNOME Shell 50, módulo ES, sem preferências.
+- Instalada em `/usr/share/gnome-shell/extensions/` pelo RPM e em `~/.local/share/gnome-shell/extensions/` pelo `install-dev.sh`. No Wayland, extensão nova só é detectada após sair e entrar na sessão.
+- Chamada D-Bus assíncrona e sem ativação automática (`NO_AUTO_START`): foco não deve iniciar o daemon.
