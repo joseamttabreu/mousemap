@@ -1,11 +1,11 @@
-"""mousemapd: captura o mouse, aplica o remapeamento e atende a GUI pelo D-Bus."""
+"""mousemapd: captura os mouses, aplica o remapeamento e atende a GUI pelo D-Bus."""
 
 import argparse
 import os
 import signal
 import socket
 import sys
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import evdev
@@ -25,10 +25,11 @@ from ..config import TRIGGERS
 from ..i18n import _
 from . import device
 from .dbus_service import DBusService
-from .engine import Engine
+from .engine import Engine, SharedKeyboard
 
 RETRY_SECONDS = 2
 LEARN_SECONDS = 10
+MOUSE_PROFILE_PREFIX = "mouse:"  # TestProfileAction("mouse:<nome>", …) testa o perfil de um mouse
 
 
 def log(msg):
@@ -49,6 +50,23 @@ def sd_notify(message):
         pass
 
 
+def glib_schedule(ms, function):
+    GLib.timeout_add(ms, lambda: function() or GLib.SOURCE_REMOVE)
+
+
+@dataclass
+class Session:
+    """Um mouse capturado: dispositivo físico, mouse virtual, motor e a fonte do loop principal."""
+    dev: evdev.InputDevice
+    out: UInput
+    engine: Engine
+    watch: int = 0
+
+    @property
+    def name(self):
+        return self.dev.name
+
+
 class Daemon:
     def __init__(self, config_path):
         self.config_path = config_path
@@ -56,19 +74,22 @@ class Daemon:
         self.state = "starting"       # running | waiting_device | no_permission
         self.error = ""               # erro de configuração (a última válida segue em uso)
         self.config = cfg.Config()
-        self.keyboard = None
-        self.engine = None
-        self.dev = None
-        self.mouse_out = None
-        self._watch = None
+        self.keyboard = None          # SharedKeyboard, criado quando há um mouse para remapear
+        self.sessions = {}            # caminho do evdev -> Session
+        self.learning = False
         self._learn_timeout = None
         self._reload_timeout = None
+        self._published = None
         self.exit_code = 0
         self.dbus = None
         self.app_id = ""              # aplicativo em foco, informado pela extensão do GNOME Shell
         self.wm_class = ""
         self.focus_source = False     # a extensão já informou o foco nesta execução
         self._announced = ("", "")    # (app, perfil) do último ActiveAppChanged
+
+    @property
+    def engines(self):
+        return [s.engine for s in self.sessions.values()]
 
     # --- ciclo de vida -------------------------------------------------------------------
 
@@ -91,9 +112,9 @@ class Daemon:
         self._connect()
         sd_notify("READY=1")
         self.loop.run()
-        self._disconnect()
+        self._disconnect_all()
         if self.keyboard:
-            self.keyboard.close()
+            self.keyboard.device.close()
         self.dbus.close()
         return self.exit_code
 
@@ -107,99 +128,106 @@ class Daemon:
         self.exit_code = 1
         self.loop.quit()
 
-    def _set_state(self, state):
-        if state == self.state:
-            return
-        self.state = state
-        log({"running": f"Remapeamento ativo em {self.dev.path if self.dev else ''}.",
-             "waiting_device": "Aguardando o mouse conectar...",
-             "no_permission": "Sem permissão para o mouse ou para /dev/uinput."}.get(state, state))
+    def _update_state(self, no_permission=False):
+        state = "running" if self.sessions else ("no_permission" if no_permission else "waiting_device")
+        if state != self.state:
+            self.state = state
+            if state == "waiting_device":
+                log("Aguardando o mouse conectar...")
+            elif state == "no_permission":
+                log("Sem permissão para o mouse ou para /dev/uinput.")
         self._publish_status()
 
     def _publish_status(self):
-        if self.dbus:
-            self.dbus.status_changed(self.status())
+        status = self.status()
+        if self.dbus and status != self._published:  # só avisa a GUI quando algo mudou
+            self._published = status
+            self.dbus.status_changed(status)
 
-    # --- dispositivo ---------------------------------------------------------------------
+    # --- dispositivos --------------------------------------------------------------------
 
     def _retry(self):
-        if self.state != "running":
-            self._connect()
+        self._connect()  # também pega um segundo mouse configurado que conectou depois
         return GLib.SOURCE_CONTINUE
 
     def _connect(self):
-        if self.dev:
-            return
-        target = device.pick(device.list_mice(), self.config.device)
-        if target is None:
-            self._set_state("waiting_device")
-            return
-        try:
-            if self.keyboard is None:  # só cria o teclado virtual quando há um mouse para remapear
-                self.keyboard = UInput({evdev.ecodes.EV_KEY: keys.KEYBOARD_KEYS}, name="mousemap teclado virtual")
-                self.engine = Engine(self.config, self.keyboard, on_learn=self._on_learn)
-                self.engine.set_app(self.app_id, self.wm_class)
-            dev = evdev.InputDevice(target.path)
-        except (PermissionError, UInputError):
-            self._set_state("no_permission")
-            return
-        except OSError as err:
-            log(f"Falha ao abrir o mouse: {err}")
-            self._set_state("waiting_device")
-            return
-        try:
-            self.mouse_out = UInput.from_device(dev, name=f"{device.VIRTUAL_PREFIX}: {dev.name}")
-            dev.grab()
-        except OSError as err:
-            log(f"Falha ao capturar {dev.path}: {err}")
-            if self.mouse_out:
-                self.mouse_out.close()
-                self.mouse_out = None
-            dev.close()
-            self._set_state("no_permission" if isinstance(err, PermissionError) else "waiting_device")
-            return
-        self.dev = dev
-        self.engine.mouse = self.mouse_out
-        self._watch = GLib.io_add_watch(dev.fd, GLib.PRIORITY_HIGH,
-                                        GLib.IO_IN | GLib.IO_HUP | GLib.IO_ERR, self._on_input)
-        self._set_state("running")
-
-    def _disconnect(self):
-        if self.engine:
-            self.engine.release_all()
-            self.engine.mouse = None
-        if self._watch:
-            GLib.source_remove(self._watch)
-            self._watch = None
-        if self.dev:
+        connected = {s.dev.path for s in self.sessions.values()}
+        targets = [t for t in device.pick_many(device.list_mice(), self.config.devices) if t.path not in connected]
+        if not self.config.devices and self.sessions:
+            targets = []  # automático: um mouse só
+        no_permission = False
+        for target in targets:
             try:
-                self.dev.ungrab()
-            except OSError:
-                pass
-            self.dev.close()
-            self.dev = None
-        if self.mouse_out:
-            self.mouse_out.close()
-            self.mouse_out = None
+                self._open(target)
+            except (PermissionError, UInputError):
+                no_permission = True
+            except OSError as err:
+                log(f"Falha ao capturar {target.path}: {err}")
+        self._update_state(no_permission)
 
-    def _on_input(self, _fd, condition):
-        if condition & (GLib.IO_HUP | GLib.IO_ERR):
-            return self._lost()
+    def _open(self, target):
+        if self.keyboard is None:  # só cria o teclado virtual quando há um mouse para remapear
+            self.keyboard = SharedKeyboard(
+                UInput({evdev.ecodes.EV_KEY: keys.KEYBOARD_KEYS}, name="mousemap teclado virtual"))
+        dev = evdev.InputDevice(target.path)
+        out = None
         try:
-            for ev in self.dev.read():
-                if not self.engine.handle(ev):
-                    self.mouse_out.write_event(ev)
+            out = UInput.from_device(dev, name=f"{device.VIRTUAL_PREFIX}: {dev.name}")
+            dev.grab()
+        except OSError:
+            if out:
+                out.close()
+            dev.close()
+            raise
+        engine = Engine(self.config, self.keyboard, out, on_learn=self._on_learn,
+                        schedule=glib_schedule, mouse_name=dev.name)
+        engine.set_app(self.app_id, self.wm_class)
+        engine.learn = self.learning
+        session = Session(dev, out, engine)
+        session.watch = GLib.io_add_watch(dev.fd, GLib.PRIORITY_HIGH, GLib.IO_IN | GLib.IO_HUP | GLib.IO_ERR,
+                                          self._on_input, dev.path)
+        self.sessions[dev.path] = session
+        log(f"Remapeamento ativo em {dev.path} ({dev.name}).")
+
+    def _close(self, path, remove_watch=True):
+        session = self.sessions.pop(path, None)
+        if not session:
+            return
+        session.engine.release_all()
+        session.engine.mouse = None
+        if remove_watch and session.watch:
+            GLib.source_remove(session.watch)
+        try:
+            session.dev.ungrab()
+        except OSError:
+            pass
+        session.dev.close()
+        session.out.close()
+
+    def _disconnect_all(self):
+        for path in list(self.sessions):
+            self._close(path)
+
+    def _on_input(self, _fd, condition, path):
+        session = self.sessions.get(path)
+        if not session:
+            return GLib.SOURCE_REMOVE
+        if condition & (GLib.IO_HUP | GLib.IO_ERR):
+            return self._lost(path)
+        try:
+            for ev in session.dev.read():
+                if not session.engine.handle(ev):
+                    session.out.write_event(ev)
         except BlockingIOError:
             pass
         except OSError:
-            return self._lost()
+            return self._lost(path)
         return GLib.SOURCE_CONTINUE
 
-    def _lost(self):
-        log("Mouse desconectado.")
-        self._watch = None  # a fonte é removida ao retornar SOURCE_REMOVE
-        self._disconnect()
-        self._set_state("waiting_device")
+    def _lost(self, path):
+        log(f"Mouse desconectado: {path}.")
+        self._close(path, remove_watch=False)  # a fonte é removida ao retornar SOURCE_REMOVE
+        self._update_state()
         return GLib.SOURCE_REMOVE
 
     # --- configuração --------------------------------------------------------------------
@@ -230,20 +258,21 @@ class Daemon:
     def reload(self):
         try:
             new = cfg.load(self.config_path)
-            if self.engine:
-                self.engine.configure(new)
+            for engine in self.engines:
+                engine.configure(new)
         except (cfg.ConfigError, ValueError) as err:
             self.error = str(err)
             log(f"Configuração inválida, mantendo a anterior: {err}")
             self._publish_status()
             return False, self.error
-        device_changed = new.device != self.config.device
+        devices_changed = new.devices != self.config.devices
         self.config, self.error = new, ""
         log("Configuração recarregada.")
+        for engine in self.engines:
+            engine.cancel_macro()  # macro em andamento é da configuração anterior
         self._announce_app()  # o perfil do app em foco pode ter sido criado ou removido
-        if device_changed:
-            self._disconnect()
-            self.state = "waiting_device"
+        if devices_changed:
+            self._disconnect_all()
             self._connect()
         self._publish_status()
         return True, ""
@@ -252,15 +281,16 @@ class Daemon:
 
     @property
     def profile(self):
-        if self.engine:
-            return self.engine.profile
+        engines = self.engines
+        if engines:
+            return engines[0].profile
         return cfg.find_profile(self.config, self.app_id, self.wm_class)
 
     def set_active_app(self, app_id, wm_class):
         self.focus_source = True
         self.app_id, self.wm_class = app_id.removesuffix(".desktop"), wm_class
-        if self.engine:
-            self.engine.set_app(self.app_id, self.wm_class)
+        for engine in self.engines:
+            engine.set_app(self.app_id, self.wm_class)
         self._announce_app()
 
     def _announce_app(self):
@@ -270,25 +300,41 @@ class Daemon:
             if self.dbus:
                 self.dbus.active_app_changed(*current)
 
-    def test_profile_action(self, app_id, trigger):
+    def _test(self, trigger, profile):
+        """profile: None = vigente, "" = padrão, "<app>" = perfil do app, "mouse:<nome>" = perfil do mouse."""
         if trigger not in TRIGGERS:
             return False, _("gatilho desconhecido: {}").format(trigger)
-        if app_id and app_id not in self.config.apps:
-            return False, _("perfil desconhecido: {}").format(app_id)
-        if not self.engine:
-            return False, _("serviço sem acesso ao /dev/uinput")
-        if not self.engine.test(trigger, profile=app_id):
+        if not self.engines:
+            return False, _("nenhum mouse capturado")
+        engine = self.engines[0]
+        if profile and profile.startswith(MOUSE_PROFILE_PREFIX):
+            name = profile.removeprefix(MOUSE_PROFILE_PREFIX)
+            engine = next((s.engine for s in self.sessions.values() if s.name == name), None)
+            if engine is None:
+                return False, _("mouse não conectado: {}").format(name)
+            profile = ""
+        elif profile and profile not in self.config.apps:
+            return False, _("perfil desconhecido: {}").format(profile)
+        if not engine.test(trigger, profile=profile):
             return False, _("este botão está no comportamento padrão ou desativado")
         return True, ""
 
+    def test_action(self, trigger):
+        return self._test(trigger, None)
+
+    def test_profile_action(self, profile, trigger):
+        return self._test(trigger, profile)
+
     def status(self):
+        names = [s.name for s in self.sessions.values()]
         return {
             "state": self.state,
-            "device": self.dev.name if self.dev else self.config.device,
-            "path": self.dev.path if self.dev else "",
+            "device": ", ".join(names or self.config.devices),
+            "devices": names,
+            "path": next(iter(self.sessions), ""),
             "error": self.error,
             "config_path": str(self.config_path),
-            "learning": bool(self.engine and self.engine.learn),
+            "learning": self.learning,
             "app": self.app_id,
             "profile": self.profile,
             "focus_source": self.focus_source,
@@ -298,9 +344,11 @@ class Daemon:
         return [{**asdict(m), "accessible": m.accessible} for m in device.list_mice()]
 
     def set_learn_mode(self, enabled):
-        if not self.engine:
-            raise RuntimeError(_("serviço sem acesso ao /dev/uinput"))
-        self.engine.learn = enabled
+        if enabled and not self.sessions:
+            raise RuntimeError(_("nenhum mouse capturado"))
+        self.learning = enabled
+        for engine in self.engines:
+            engine.learn = enabled
         if self._learn_timeout:
             GLib.source_remove(self._learn_timeout)
             self._learn_timeout = None
@@ -316,15 +364,6 @@ class Daemon:
     def _on_learn(self, trigger):
         self.dbus.trigger_pressed(trigger)
 
-    def test_action(self, trigger):
-        if trigger not in TRIGGERS:
-            return False, _("gatilho desconhecido: {}").format(trigger)
-        if not self.engine:
-            return False, _("serviço sem acesso ao /dev/uinput")
-        if not self.engine.test(trigger):
-            return False, _("este botão está no comportamento padrão ou desativado")
-        return True, ""
-
 
 def main():
     parser = argparse.ArgumentParser(prog="mousemapd", description="Serviço de remapeamento do mousemap.")
@@ -338,10 +377,10 @@ def main():
     if args.diagnose:
         from . import diagnose
         try:
-            device_name = cfg.load(args.config).device
+            devices = cfg.load(args.config).devices
         except cfg.ConfigError:
-            device_name = ""
-        return diagnose.run(device_name)
+            devices = []
+        return diagnose.run(devices[0] if devices else "")
 
     if args.check:
         try:
@@ -350,8 +389,13 @@ def main():
             sys.exit(f"Erro em {args.config}: {err}")
         for warning in config.warnings:
             print(f"Aviso: {warning}")
+        print(f"mouses: {', '.join(config.devices) or 'automático'}")
         for trigger in TRIGGERS:
             print(f"{trigger:13} -> {config.buttons[trigger].describe()}")
+        for table, title in ((config.mice, "mouse"), (config.apps, "app")):
+            for key, profile in table.items():
+                changes = ", ".join(f"{t} -> {a.describe()}" for t, a in profile.buttons.items()) or "nada"
+                print(f"[{title} {key}] {changes}")
         return 0
     if args.list:
         for m in device.list_mice():

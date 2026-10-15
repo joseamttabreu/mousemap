@@ -9,7 +9,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 from .. import APP_ID, __version__
 from .. import config as cfg
 from ..i18n import _
-from ..config import COOLDOWN_RANGE, TRIGGER_LABELS, TRIGGERS, Action, AppProfile
+from ..config import COOLDOWN_RANGE, EXTRA_TRIGGERS, TRIGGER_LABELS, TRIGGERS, Action, Profile
 from .action_dialog import ActionDialog
 from .app_picker import AppPickerDialog, app_name
 from .daemon_client import DaemonClient
@@ -19,6 +19,7 @@ SERVICE = "mousemapd.service"
 RETRY_MS = 2500  # o daemon tenta reconectar a cada 2 s
 BUS_LABELS = {"bluetooth": "Bluetooth", "usb": "USB", "ps2": "PS/2", "i2c": _("Integrado"), "host": _("Integrado")}
 CSS = ".mm-highlight { background-color: alpha(@accent_bg_color, 0.3); }"
+MOUSE = "mouse:"  # chave de perfil de mouse no seletor (o resto são ids de aplicativo)
 
 
 def setup_script():
@@ -45,7 +46,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.rows = {}
         self._updating = False
         self._save_timeout = None
-        self._device_names = [""]
+        self.device_rows = {}         # nome do mouse -> Adw.SwitchRow
         self.profile = ""             # perfil exibido ("" = padrão de todos os aplicativos)
         self._profile_keys = [""]
         self.extension = ShellExtension()
@@ -81,12 +82,12 @@ class MainWindow(Adw.ApplicationWindow):
 
         page = Adw.PreferencesPage()
 
-        mouse_group = Adw.PreferencesGroup(title=_("Mouse"))
-        self.device_model = Gtk.StringList.new([_("Automático")])
-        self.device_row = Adw.ComboRow(title=_("Dispositivo"), model=self.device_model)
-        self.device_row.connect("notify::selected", self._on_device_selected)
-        mouse_group.add(self.device_row)
-        page.add(mouse_group)
+        self.mouse_group = Adw.PreferencesGroup(
+            title=_("Mouses"),
+            description=_("Marque os mouses a remapear. Nenhum marcado: o primeiro mouse com botões extras."))
+        self.service_row = Adw.ActionRow(title=_("Serviço"), subtitle_selectable=True)
+        self.mouse_group.add(self.service_row)
+        page.add(self.mouse_group)
 
         apps_group = Adw.PreferencesGroup(
             title=_("Aplicativo"),
@@ -115,6 +116,8 @@ class MainWindow(Adw.ApplicationWindow):
                                                 tooltip_text=_("Aperte um botão do mouse para encontrá-lo na lista"))
         self.identify_button.connect("toggled", self._on_identify_toggled)
         buttons_group.set_header_suffix(self.identify_button)
+        self.extra_expander = Adw.ExpanderRow(title=_("Outros botões"),
+                                              subtitle=_("Botões 6, 7 e 8: só existem em alguns mouses"))
         for trigger in TRIGGERS:
             row = Adw.ActionRow(title=TRIGGER_LABELS[trigger], activatable=True)
             test = Gtk.Button(icon_name="media-playback-start-symbolic", valign=Gtk.Align.CENTER,
@@ -123,8 +126,12 @@ class MainWindow(Adw.ApplicationWindow):
             row.add_suffix(test)
             row.add_suffix(Gtk.Image(icon_name="go-next-symbolic"))
             row.connect("activated", self._on_row_activated, trigger)
-            buttons_group.add(row)
+            if trigger in EXTRA_TRIGGERS:
+                self.extra_expander.add_row(row)
+            else:
+                buttons_group.add(row)
             self.rows[trigger] = row
+        buttons_group.add(self.extra_expander)
         page.add(buttons_group)
 
         settings_group = Adw.PreferencesGroup(title=_("Ajustes"))
@@ -163,12 +170,31 @@ class MainWindow(Adw.ApplicationWindow):
         self._show_config()
         self._update_banner()
 
+    def _profile_keys_now(self):
+        """Chaves do seletor: padrão (""), perfis de mouse (com 2+ mouses marcados ou com sobrescritas
+        salvas) e perfis de aplicativo."""
+        mice = list(dict.fromkeys((self.config.devices if len(self.config.devices) > 1 else [])
+                                  + list(self.config.mice)))
+        apps = sorted(self.config.apps, key=lambda k: self.profile_label(k).casefold())
+        return [""] + [MOUSE + m for m in mice] + apps
+
+    def _overrides(self, key, create=False):
+        """Sobrescritas do perfil `key` (dict trigger -> Action), ou None para o padrão."""
+        if not key:
+            return None
+        if key.startswith(MOUSE):
+            name = key.removeprefix(MOUSE)
+            if create:
+                return self.config.mice.setdefault(name, Profile()).buttons
+            return self.config.mice[name].buttons if name in self.config.mice else {}
+        return self.config.apps[key].buttons
+
     def _show_config(self):
         self._updating = True
-        if self.profile not in self.config.apps:
+        if self.profile not in self._profile_keys_now():
             self.profile = ""
         self._fill_profiles()
-        profile = self.config.apps.get(self.profile)
+        profile = None if not self.profile else Profile(buttons=self._overrides(self.profile))
         for trigger, row in self.rows.items():
             text = self.config.buttons[trigger].describe()
             if profile is not None:
@@ -179,11 +205,13 @@ class MainWindow(Adw.ApplicationWindow):
         self._fill_devices()
         self._updating = False
 
-    def profile_label(self, app_id):
-        if not app_id:
+    def profile_label(self, key):
+        if not key:
             return _("Todos os aplicativos")
-        profile = self.config.apps.get(app_id)
-        return (profile.name if profile else "") or app_name(app_id) or app_id
+        if key.startswith(MOUSE):
+            return _("Mouse: {}").format(key.removeprefix(MOUSE))
+        profile = self.config.apps.get(key)
+        return (profile.name if profile else "") or app_name(key) or key
 
     def _save(self, message=_("Aplicado")):
         try:
@@ -205,7 +233,7 @@ class MainWindow(Adw.ApplicationWindow):
     def _set_action(self, trigger, action):
         """action None = o perfil volta a herdar o padrão."""
         if self.profile:
-            buttons = self.config.apps[self.profile].buttons
+            buttons = self._overrides(self.profile, create=True)
             if action is None:
                 buttons.pop(trigger, None)
             else:
@@ -222,7 +250,7 @@ class MainWindow(Adw.ApplicationWindow):
             self.identify_button.set_active(False)
         save = lambda action: self._set_action(trigger, action)  # noqa: E731
         if self.profile:
-            ActionDialog(trigger, self.config.apps[self.profile].buttons.get(trigger), save,
+            ActionDialog(trigger, self._overrides(self.profile).get(trigger), save,
                          inherited=self.config.buttons[trigger].describe(),
                          subtitle=self.profile_label(self.profile)).present(self)
         else:
@@ -278,6 +306,8 @@ class MainWindow(Adw.ApplicationWindow):
         row = self.rows.get(trigger)
         if not row:
             return
+        if trigger in EXTRA_TRIGGERS:
+            self.extra_expander.set_expanded(True)
         row.grab_focus()
         row.add_css_class("mm-highlight")
         GLib.timeout_add(1200, lambda: row.remove_css_class("mm-highlight") or GLib.SOURCE_REMOVE)
@@ -286,14 +316,16 @@ class MainWindow(Adw.ApplicationWindow):
     # --- perfis por aplicativo ---------------------------------------------------------------
 
     def _fill_profiles(self):
-        keys = [""] + sorted(self.config.apps, key=lambda k: self.profile_label(k).casefold())
+        keys = self._profile_keys_now()
         was_updating, self._updating = self._updating, True
         if keys != self._profile_keys:
             self._profile_keys = keys
             self.profile_model.splice(0, self.profile_model.get_n_items(), [self.profile_label(k) for k in keys])
         self.profile_row.set_selected(keys.index(self.profile))
-        self.profile_row.set_subtitle(_("Padrão") if not self.profile else self.profile)
-        self.remove_profile_button.set_visible(bool(self.profile))
+        self.profile_row.set_subtitle(_("Padrão") if not self.profile else self.profile.removeprefix(MOUSE))
+        mouse_name = self.profile.removeprefix(MOUSE) if self.profile.startswith(MOUSE) else ""
+        # Perfil de mouse: o botão limpa as sobrescritas (só aparece se houver alguma).
+        self.remove_profile_button.set_visible(bool(self.profile) and (not mouse_name or mouse_name in self.config.mice))
         self._updating = was_updating
 
     def _on_profile_selected(self, row, _pspec):
@@ -310,24 +342,31 @@ class MainWindow(Adw.ApplicationWindow):
             self.profile = app_id
             self._show_config()
             return
-        self.config.apps[app_id] = AppProfile(name=name)
+        self.config.apps[app_id] = Profile(name=name)
         self.profile = app_id
         self._show_config()
         self._save(_("Perfil criado: {}").format(self.profile_label(app_id)))
 
     def _on_remove_profile(self, _button):
-        dialog = Adw.AlertDialog(heading=_("Remover o perfil de {}?").format(self.profile_label(self.profile)),
-                                 body=_("Esse aplicativo volta a usar o mapeamento padrão."))
+        if self.profile.startswith(MOUSE):
+            heading = _("Limpar o perfil de {}?").format(self.profile.removeprefix(MOUSE))
+            body = _("Esse mouse volta a usar o mapeamento padrão.")
+        else:
+            heading = _("Remover o perfil de {}?").format(self.profile_label(self.profile))
+            body = _("Esse aplicativo volta a usar o mapeamento padrão.")
+        dialog = Adw.AlertDialog(heading=heading, body=body)
         dialog.add_response("cancel", _("Cancelar"))
         dialog.add_response("remove", _("Remover"))
         dialog.set_response_appearance("remove", Adw.ResponseAppearance.DESTRUCTIVE)
         dialog.connect("response", self._on_remove_response, self.profile)
         dialog.present(self)
 
-    def _on_remove_response(self, _dialog, response, app_id):
-        if response != "remove" or app_id not in self.config.apps:
+    def _on_remove_response(self, _dialog, response, key):
+        if response != "remove":
             return
-        del self.config.apps[app_id]
+        table, name = ((self.config.mice, key.removeprefix(MOUSE)) if key.startswith(MOUSE)
+                       else (self.config.apps, key))
+        table.pop(name, None)
         self.profile = ""
         self._show_config()
         self._save(_("Perfil removido"))
@@ -366,26 +405,41 @@ class MainWindow(Adw.ApplicationWindow):
     # --- dispositivos ------------------------------------------------------------------------
 
     def _fill_devices(self):
-        devices = self.client.list_devices()
-        names = [""] + [d["name"] for d in devices]
-        labels = [_("Automático")] + [f"{d['name']} ({BUS_LABELS.get(d['bus'], d['bus'])})" for d in devices]
-        if self.config.device and self.config.device not in names:
-            names.append(self.config.device)
-            labels.append(_("{} (desconectado)").format(self.config.device))
+        """Uma chave por mouse com botões extras (touchpads ficam de fora) + os marcados que estão desconectados."""
+        status = self.client.status or {}
+        captured = set(status.get("devices", []))
+        subtitles = {}
+        for d in self.client.list_devices():
+            if set(d["triggers"]) - {"middle"} or d["name"] in self.config.devices:
+                bus = BUS_LABELS.get(d["bus"], d["bus"])
+                subtitles[d["name"]] = f"{bus} · {_('capturado')}" if d["name"] in captured else bus
+        for name in self.config.devices:
+            subtitles.setdefault(name, _("desconectado"))
         was_updating, self._updating = self._updating, True
-        if names != self._device_names:
-            self._device_names = names
-            self.device_model.splice(0, self.device_model.get_n_items(), labels)
-        self.device_row.set_selected(names.index(self.config.device) if self.config.device in names else 0)
+        if list(subtitles) != list(self.device_rows):
+            for row in self.device_rows.values():
+                self.mouse_group.remove(row)
+            self.device_rows = {}
+            for name in subtitles:
+                row = Adw.SwitchRow(title=name, use_markup=False)
+                row.connect("notify::active", self._on_device_toggled, name)
+                self.mouse_group.add(row)
+                self.device_rows[name] = row
+        for name, row in self.device_rows.items():
+            row.set_subtitle(subtitles[name])
+            row.set_active(name in self.config.devices)
         self._updating = was_updating
 
-    def _on_device_selected(self, row, _pspec):
+    def _on_device_toggled(self, row, _pspec, name):
         if self._updating:
             return
-        name = self._device_names[row.get_selected()]
-        if name != self.config.device:
-            self.config.device = name
-            self._save(_("Dispositivo alterado"))
+        devices = [d for d in self.config.devices if d != name]
+        if row.get_active():
+            devices.append(name)
+        if devices != self.config.devices:
+            self.config.devices = devices
+            self._show_config()  # perfis de mouse aparecem com 2+ mouses marcados
+            self._save(_("Mouses alterados"))
 
     # --- estado do serviço -------------------------------------------------------------------
 
@@ -398,9 +452,9 @@ class MainWindow(Adw.ApplicationWindow):
         if status:
             state = {"running": _("Ativo"), "waiting_device": _("Desconectado"),
                      "no_permission": _("Sem permissão")}.get(status.get("state"), status.get("state"))
-            self.device_row.set_subtitle(f"{state} — {status.get('device') or _('nenhum mouse')}")
+            self.service_row.set_subtitle(f"{state} — {status.get('device') or _('nenhum mouse')}")
         else:
-            self.device_row.set_subtitle(_("Serviço parado"))
+            self.service_row.set_subtitle(_("Serviço parado"))
         self._update_extension_row()
         self._update_banner()
 

@@ -1,5 +1,5 @@
 Name:           mousemap
-Version:        0.4.0
+Version:        0.5.0
 Release:        1%{?dist}
 Summary:        Remap extra mouse buttons on Linux, with a GTK interface
 
@@ -81,6 +81,10 @@ udevadm trigger --subsystem-match=input --property-match=ID_INPUT_MOUSE=1 >/dev/
 %{_datadir}/gnome-shell/extensions/mousemap@joseamttabreu.github.com/
 
 %changelog
+* Thu Oct 15 2026 joseamttabreu <jose@ouroborosbr.com> - 0.5.0-1
+- Macros, rolagem, clique do meio e botões 6-8
+- Vários mouses, com perfil por mouse
+
 * Thu Oct 15 2026 joseamttabreu <jose@ouroborosbr.com> - 0.4.0-1
 - Perfis por aplicativo com extensão do GNOME Shell
 - mousemapd --diagnose

@@ -7,12 +7,16 @@ from gi.repository import Adw, Gio, GLib, Gtk
 
 from .. import keys
 from ..i18n import _
-from ..config import CLICKS, KIND_LABELS, KINDS, TRIGGER_LABELS, Action
+from ..config import CLICKS, KIND_LABELS, KINDS, SCROLLS, TRIGGER_LABELS, Action
 from ..presets import PRESETS
 
 PRESET_IDS = list(PRESETS)
 CLICK_IDS = list(CLICKS)
-EMPTY_MESSAGES = {"keys": _("Grave ou digite um atalho"), "cmd": _("Digite um comando")}
+SCROLL_IDS = list(SCROLLS)
+EMPTY_MESSAGES = {"keys": _("Grave ou digite um atalho"), "cmd": _("Digite um comando"),
+                  "macro": _("Digite os passos ou grave um atalho")}
+KEYS_TITLE = _("Atalho (ex.: ctrl+shift+t)")
+MACRO_TITLE = _("Passos (ex.: ctrl+c, 100ms, ctrl+v)")
 
 
 def sentence(text):
@@ -30,6 +34,7 @@ class ActionDialog(Adw.Dialog):
         self.inherited = inherited
         self.kinds = (("inherit",) if inherited is not None else ()) + KINDS
         self.capturing = False
+        self._capture_row = None  # keys_row (substitui o texto) ou macro_row (acrescenta um passo)
         self._mods = []
 
         header = Adw.HeaderBar(show_start_title_buttons=False, show_end_title_buttons=False,
@@ -46,12 +51,11 @@ class ActionDialog(Adw.Dialog):
         self.kind_row = Adw.ComboRow(title=_("Tipo de ação"), model=Gtk.StringList.new(labels))
         self.preset_row = Adw.ComboRow(title=_("Ação"),
                                        model=Gtk.StringList.new([PRESETS[p][0] for p in PRESET_IDS]))
-        self.keys_row = Adw.EntryRow(title=_("Atalho (ex.: ctrl+shift+t)"))
-        self.capture_button = Gtk.ToggleButton(icon_name="input-keyboard-symbolic", valign=Gtk.Align.CENTER,
-                                               tooltip_text=_("Gravar atalho pressionando as teclas"),
-                                               css_classes=["flat"])
-        self.capture_button.connect("toggled", self._on_capture_toggled)
-        self.keys_row.add_suffix(self.capture_button)
+        self.keys_row = Adw.EntryRow(title=KEYS_TITLE)
+        self.capture_button = self._capture_toggle(self.keys_row, _("Gravar atalho pressionando as teclas"))
+        self.macro_row = Adw.EntryRow(title=MACRO_TITLE)
+        self.macro_capture_button = self._capture_toggle(self.macro_row, _("Gravar um passo pressionando o atalho"))
+        self._capture_buttons = {self.keys_row: self.capture_button, self.macro_row: self.macro_capture_button}
         self.cmd_row = Adw.EntryRow(title=_("Comando"))
         pick = Gtk.Button(icon_name="document-open-symbolic", valign=Gtk.Align.CENTER,
                           tooltip_text=_("Escolher programa"), css_classes=["flat"])
@@ -59,7 +63,10 @@ class ActionDialog(Adw.Dialog):
         self.cmd_row.add_suffix(pick)
         self.click_row = Adw.ComboRow(title=_("Clique"),
                                       model=Gtk.StringList.new([CLICKS[c][0] for c in CLICK_IDS]))
-        for row in (self.kind_row, self.preset_row, self.keys_row, self.cmd_row, self.click_row):
+        self.scroll_row = Adw.ComboRow(title=_("Direção"),
+                                       model=Gtk.StringList.new([SCROLLS[d][0] for d in SCROLL_IDS]))
+        for row in (self.kind_row, self.preset_row, self.keys_row, self.macro_row, self.cmd_row,
+                    self.click_row, self.scroll_row):
             group.add(row)
 
         preview_group = Adw.PreferencesGroup()
@@ -81,9 +88,9 @@ class ActionDialog(Adw.Dialog):
         self.add_controller(keyctl)
 
         self._fill(action)
-        for row in (self.kind_row, self.preset_row, self.click_row):
+        for row in (self.kind_row, self.preset_row, self.click_row, self.scroll_row):
             row.connect("notify::selected", lambda *_: self._update())
-        for row in (self.keys_row, self.cmd_row):
+        for row in (self.keys_row, self.macro_row, self.cmd_row):
             row.connect("changed", lambda *_: self._update())
         self.connect("closed", lambda *_: self._stop_capture())
         self._update()
@@ -101,6 +108,10 @@ class ActionDialog(Adw.Dialog):
             self.cmd_row.set_text(action.value)
         if action.kind == "click" and action.value in CLICKS:
             self.click_row.set_selected(CLICK_IDS.index(action.value))
+        if action.kind == "macro":
+            self.macro_row.set_text(action.value)
+        if action.kind == "scroll" and action.value in SCROLLS:
+            self.scroll_row.set_selected(SCROLL_IDS.index(action.value))
 
     def current_kind(self):
         return self.kinds[self.kind_row.get_selected()]
@@ -117,6 +128,8 @@ class ActionDialog(Adw.Dialog):
             "keys": lambda: self.keys_row.get_text(),
             "cmd": lambda: self.cmd_row.get_text(),
             "click": lambda: CLICK_IDS[self.click_row.get_selected()],
+            "macro": lambda: self.macro_row.get_text(),
+            "scroll": lambda: SCROLL_IDS[self.scroll_row.get_selected()],
         }[kind]()
         if not value.strip():
             raise ValueError(EMPTY_MESSAGES[kind])
@@ -128,6 +141,8 @@ class ActionDialog(Adw.Dialog):
         self.keys_row.set_visible(kind == "keys")
         self.cmd_row.set_visible(kind == "cmd")
         self.click_row.set_visible(kind == "click")
+        self.macro_row.set_visible(kind == "macro")
+        self.scroll_row.set_visible(kind == "scroll")
         try:
             action = self.current_action()
         except ValueError as err:
@@ -163,22 +178,33 @@ class ActionDialog(Adw.Dialog):
 
     # --- captura de atalho -----------------------------------------------------------------
 
-    def _on_capture_toggled(self, button):
+    def _capture_toggle(self, row, tooltip):
+        button = Gtk.ToggleButton(icon_name="input-keyboard-symbolic", valign=Gtk.Align.CENTER,
+                                  tooltip_text=tooltip, css_classes=["flat"])
+        button.connect("toggled", self._on_capture_toggled, row)
+        row.add_suffix(button)
+        return button
+
+    def _on_capture_toggled(self, button, row):
         if button.get_active():
+            if self.capturing:  # trocou de campo no meio de uma gravação
+                self._stop_capture()
             self.capturing = True
+            self._capture_row = row
             self._mods = []
-            self.keys_row.set_title(_("Pressione as teclas… (Esc cancela)"))
+            row.set_title(_("Pressione as teclas… (Esc cancela)"))
             self._inhibit(True)
-        else:
+        elif row is self._capture_row:
             self._stop_capture()
 
     def _stop_capture(self):
         if not self.capturing:
             return
         self.capturing = False
-        self.keys_row.set_title(_("Atalho (ex.: ctrl+shift+t)"))
+        row, self._capture_row = self._capture_row, None
+        row.set_title(KEYS_TITLE if row is self.keys_row else MACRO_TITLE)
         self._inhibit(False)
-        self.capture_button.set_active(False)
+        self._capture_buttons[row].set_active(False)
 
     def _inhibit(self, enable):
         """Pede ao compositor que não trate Super+… enquanto gravamos o atalho."""
@@ -193,7 +219,12 @@ class ActionDialog(Adw.Dialog):
             pass
 
     def _finish(self, codes):
-        self.keys_row.set_text(keys.format_combo(codes))
+        combo = keys.format_combo(codes)
+        if self._capture_row is self.macro_row:
+            current = self.macro_row.get_text().strip().rstrip(",")
+            self.macro_row.set_text(f"{current}, {combo}" if current else combo)
+        else:
+            self.keys_row.set_text(combo)
         self._stop_capture()
 
     def _on_key_pressed(self, _ctl, _keyval, keycode, _state):
@@ -207,7 +238,8 @@ class ActionDialog(Adw.Dialog):
         if not self._mods and code == e.KEY_ESC:
             self._stop_capture()
         elif not self._mods and code == e.KEY_BACKSPACE:
-            self.keys_row.set_text("")
+            if self._capture_row is self.keys_row:
+                self.keys_row.set_text("")
             self._stop_capture()
         elif code in keys.KEYBOARD_KEYS:
             self._finish([*self._mods, code])

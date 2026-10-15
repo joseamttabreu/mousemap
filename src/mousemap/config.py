@@ -1,7 +1,8 @@
-"""Configuração: esquema v2 (SPEC §6), leitura do formato v1 do protótipo e gravação atômica."""
+"""Configuração: esquema v2 (SPEC §6, §14, §15), leitura do formato v1 do protótipo e gravação atômica."""
 
 import json
 import os
+import re
 import tempfile
 import tomllib
 from dataclasses import dataclass, field
@@ -15,12 +16,18 @@ from .presets import PRESETS
 
 VERSION = 2
 
-TRIGGERS = ("tilt_left", "tilt_right", "side_back", "side_forward")
+PRIMARY_TRIGGERS = ("tilt_left", "tilt_right", "side_back", "side_forward", "middle")
+EXTRA_TRIGGERS = ("btn_forward", "btn_back", "btn_task")  # só existem em alguns mouses
+TRIGGERS = PRIMARY_TRIGGERS + EXTRA_TRIGGERS
 TRIGGER_LABELS = {
     "tilt_left": _("Roda para a esquerda"),
     "tilt_right": _("Roda para a direita"),
     "side_back": _("Lateral de trás"),
     "side_forward": _("Lateral da frente"),
+    "middle": _("Clique do meio"),
+    "btn_forward": _("Botão extra 6"),
+    "btn_back": _("Botão extra 7"),
+    "btn_task": _("Botão extra 8"),
 }
 
 CLICKS = {
@@ -31,18 +38,32 @@ CLICKS = {
     "forward": (_("Botão avançar"), e.BTN_EXTRA),
 }
 
-KINDS = ("default", "none", "preset", "keys", "cmd", "click")
+SCROLLS = {
+    "up": (_("Rolar para cima"), e.REL_WHEEL, 1),
+    "down": (_("Rolar para baixo"), e.REL_WHEEL, -1),
+    "left": (_("Rolar para a esquerda"), e.REL_HWHEEL, -1),
+    "right": (_("Rolar para a direita"), e.REL_HWHEEL, 1),
+}
+
+KINDS = ("default", "none", "preset", "keys", "macro", "cmd", "click", "scroll")
 KIND_LABELS = {
     "default": _("Padrão"),
     "none": _("Desativado"),
     "preset": _("Ação pronta"),
     "keys": _("Atalho de teclado"),
+    "macro": _("Macro"),
     "cmd": _("Comando"),
     "click": _("Outro clique"),
+    "scroll": _("Rolagem"),
 }
 
 COOLDOWN_RANGE = (100, 2000)
 DEFAULT_COOLDOWN = 350
+
+MACRO_MAX_STEPS = 20
+MACRO_DELAY_RANGE = (10, 5000)   # ms por pausa
+MACRO_MAX_TOTAL_DELAY = 10000    # ms somando as pausas
+_DELAY = re.compile(r"^(\d+)\s*ms$", re.IGNORECASE)
 
 
 class ConfigError(Exception):
@@ -52,6 +73,35 @@ class ConfigError(Exception):
 def config_path():
     base = os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config"
     return Path(base) / "mousemap" / "config.toml"
+
+
+def parse_macro(text):
+    """'ctrl+c, 100ms, ctrl+v' -> (('keys', códigos), ('delay', ms), ...). Levanta ValueError."""
+    steps = []
+    for raw in text.split(","):
+        part = raw.strip()
+        if not part:
+            raise ValueError(_("macro com passo vazio"))
+        match = _DELAY.match(part)
+        if match:
+            ms = int(match.group(1))
+            lo, hi = MACRO_DELAY_RANGE
+            if not lo <= ms <= hi:
+                raise ValueError(_("pausa de macro deve ficar entre {} e {} ms").format(lo, hi))
+            steps.append(("delay", ms))
+        else:
+            steps.append(("keys", keys.parse_combo(part)))
+    if len(steps) > MACRO_MAX_STEPS:
+        raise ValueError(_("macro com mais de {} passos").format(MACRO_MAX_STEPS))
+    if not any(kind == "keys" for kind, _value in steps):
+        raise ValueError(_("macro precisa de ao menos um atalho"))
+    if sum(v for k, v in steps if k == "delay") > MACRO_MAX_TOTAL_DELAY:
+        raise ValueError(_("macro com mais de {} ms de pausa no total").format(MACRO_MAX_TOTAL_DELAY))
+    return tuple(steps)
+
+
+def format_macro(steps):
+    return ", ".join(f"{v}ms" if k == "delay" else keys.format_combo(v) for k, v in steps)
 
 
 @dataclass(frozen=True)
@@ -67,7 +117,7 @@ class Action:
         if not (isinstance(spec, dict) and len(spec) == 1):
             raise ValueError(_('use "default", "none" ou uma tabela como { keys = "ctrl+c" }'))
         kind, value = next(iter(spec.items()))
-        if kind not in ("preset", "keys", "cmd", "click"):
+        if kind not in KINDS or kind in ("default", "none"):
             raise ValueError(_("tipo de ação desconhecido: {}").format(repr(kind)))
         if not isinstance(value, str) or not value.strip():
             raise ValueError(_("{} precisa de um texto não vazio").format(kind))
@@ -75,10 +125,13 @@ class Action:
         action.compile()  # valida
         if kind == "keys":  # normaliza a grafia
             action = cls("keys", keys.format_combo(keys.parse_combo(value)))
+        elif kind == "macro":
+            action = cls("macro", format_macro(parse_macro(value)))
         return action
 
     def compile(self):
-        """Forma executável: ('default'|'none', None), ('keys', códigos), ('cmd', texto), ('click', código)."""
+        """Forma executável: ('default'|'none', None), ('keys', códigos), ('macro', passos),
+        ('cmd', texto), ('click', código), ('scroll', (eixo, sentido))."""
         if self.kind in ("default", "none"):
             return self.kind, None
         if self.kind == "preset":
@@ -87,12 +140,18 @@ class Action:
             return "keys", keys.parse_combo(PRESETS[self.value][1])
         if self.kind == "keys":
             return "keys", keys.parse_combo(self.value)
+        if self.kind == "macro":
+            return "macro", parse_macro(self.value)
         if self.kind == "cmd":
             return "cmd", self.value
         if self.kind == "click":
             if self.value not in CLICKS:
                 raise ValueError(_("clique deve ser um de: {}").format(", ".join(CLICKS)))
             return "click", CLICKS[self.value][1]
+        if self.kind == "scroll":
+            if self.value not in SCROLLS:
+                raise ValueError(_("rolagem deve ser uma de: {}").format(", ".join(SCROLLS)))
+            return "scroll", SCROLLS[self.value][1:]
         raise ValueError(_("tipo de ação desconhecido: {}").format(repr(self.kind)))
 
     def to_toml(self):
@@ -109,33 +168,43 @@ class Action:
             return PRESETS.get(self.value, (self.value,))[0]
         if self.kind == "keys":
             return keys.label(keys.parse_combo(self.value))
+        if self.kind == "macro":
+            parts = [_("{} ms").format(v) if k == "delay" else keys.label(v) for k, v in parse_macro(self.value)]
+            return _("Macro: {}").format(" → ".join(parts))
         if self.kind == "cmd":
             return _("Comando: {}").format(self.value)
         if self.kind == "click":
             return CLICKS.get(self.value, (self.value,))[0]
+        if self.kind == "scroll":
+            return SCROLLS.get(self.value, (self.value,))[0]
         return self.value
 
 
 @dataclass
-class AppProfile:
-    """Perfil de um aplicativo: só os gatilhos que ele sobrescreve; o resto herda [buttons]."""
+class Profile:
+    """Sobrescritas de um aplicativo ou de um mouse: só os gatilhos que mudam; o resto herda."""
     name: str = ""
     buttons: dict = field(default_factory=dict)
 
 
+AppProfile = Profile
+
+
 @dataclass
 class Config:
-    device: str = ""
+    devices: list = field(default_factory=list)  # nomes dos mouses capturados; vazio = automático
     tilt_cooldown_ms: int = DEFAULT_COOLDOWN
     buttons: dict = field(default_factory=lambda: {t: Action() for t in TRIGGERS})
-    apps: dict = field(default_factory=dict)  # id do aplicativo -> AppProfile
+    mice: dict = field(default_factory=dict)  # nome do mouse -> Profile
+    apps: dict = field(default_factory=dict)  # id do aplicativo -> Profile
     warnings: list = field(default_factory=list, compare=False)
 
-    def actions_for(self, profile=""):
-        """Ações efetivas de um perfil ("" = padrão global)."""
+    def actions_for(self, app="", mouse=""):
+        """Ações efetivas: [buttons] ⊕ [mice.<mouse>] ⊕ [apps.<app>] (SPEC §15, RF-64)."""
         merged = dict(self.buttons)
-        if profile in self.apps:
-            merged.update(self.apps[profile].buttons)
+        for table, key in ((self.mice, mouse), (self.apps, app)):
+            if key in table:
+                merged.update(table[key].buttons)
         return merged
 
 
@@ -148,41 +217,54 @@ def find_profile(config, app_id="", wm_class=""):
     return ""
 
 
-def _parse_apps(data, warnings):
-    apps = {}
-    table = data.get("apps", {})
+def _parse_profiles(data, table_name, warnings):
+    profiles = {}
+    table = data.get(table_name, {})
     if not isinstance(table, dict):
-        raise ConfigError(_("[apps] deve ser uma tabela"))
-    for app_id, entry in table.items():
-        if not app_id.strip():
-            raise ConfigError(_("[apps] tem um aplicativo com id vazio"))
+        raise ConfigError(_("[{}] deve ser uma tabela").format(table_name))
+    for key, entry in table.items():
+        if not key.strip():
+            raise ConfigError(_("[{}] tem uma entrada com nome vazio").format(table_name))
+        where = f"{table_name}.{key}"
         if not isinstance(entry, dict):
-            raise ConfigError(_("apps.{}: deve ser uma tabela").format(app_id))
+            raise ConfigError(_("{}: deve ser uma tabela").format(where))
         name = entry.get("name", "")
         if not isinstance(name, str):
-            raise ConfigError(_("apps.{}.name deve ser texto").format(app_id))
-        profile = AppProfile(name=name)
-        for key, spec in entry.items():
-            if key == "name":
+            raise ConfigError(_("{}.name deve ser texto").format(where))
+        profile = Profile(name=name)
+        for trigger, spec in entry.items():
+            if trigger == "name":
                 continue
-            if key not in TRIGGERS:
-                warnings.append(_("botão desconhecido ignorado: {}").format(f"apps.{app_id}.{key}"))
+            if trigger not in TRIGGERS:
+                warnings.append(_("botão desconhecido ignorado: {}").format(f"{where}.{trigger}"))
                 continue
             try:
-                profile.buttons[key] = Action.parse(spec)
+                profile.buttons[trigger] = Action.parse(spec)
             except ValueError as err:
-                raise ConfigError(f"apps.{app_id}.{key}: {err}") from None
-        apps[app_id] = profile
-    return apps
+                raise ConfigError(f"{where}.{trigger}: {err}") from None
+        profiles[key] = profile
+    return profiles
+
+
+def _parse_devices(settings):
+    if "devices" in settings:
+        devices = settings["devices"]
+        if not isinstance(devices, list) or not all(isinstance(d, str) and d.strip() for d in devices):
+            raise ConfigError(_("settings.devices deve ser uma lista de nomes"))
+        return list(dict.fromkeys(devices))
+    device = settings.get("device", "")  # formato até a 0.4
+    if not isinstance(device, str):
+        raise ConfigError(_("settings.device deve ser texto"))
+    return [device] if device else []
 
 
 def parse(data):
     """dict do TOML (v1 ou v2) -> Config."""
     version = data.get("version", 1)
     if version == 1:
-        source, known = data, {"settings", *TRIGGERS}
+        source, known = data, {"settings", "tilt_left", "tilt_right", "side_back", "side_forward"}
     elif version == VERSION:
-        source, known = data.get("buttons", {}), {"version", "settings", "buttons", "apps"}
+        source, known = data.get("buttons", {}), {"version", "settings", "buttons", "apps", "mice"}
         if not isinstance(source, dict):
             raise ConfigError(_("[buttons] deve ser uma tabela"))
     else:
@@ -194,6 +276,8 @@ def parse(data):
         config.warnings += [_("botão desconhecido ignorado: {}").format(k) for k in source if k not in TRIGGERS]
 
     for trigger in TRIGGERS:
+        if version == 1 and trigger not in known:
+            continue
         try:
             config.buttons[trigger] = Action.parse(source.get(trigger, "default"))
         except ValueError as err:
@@ -202,16 +286,14 @@ def parse(data):
     settings = data.get("settings", {})
     if not isinstance(settings, dict):
         raise ConfigError(_("[settings] deve ser uma tabela"))
-    device = settings.get("device", "")
-    if not isinstance(device, str):
-        raise ConfigError(_("settings.device deve ser texto"))
     cooldown = settings.get("tilt_cooldown_ms", DEFAULT_COOLDOWN)
     lo, hi = COOLDOWN_RANGE
     if not isinstance(cooldown, int) or isinstance(cooldown, bool) or not lo <= cooldown <= hi:
         raise ConfigError(_("settings.tilt_cooldown_ms deve ser um inteiro entre {} e {}").format(lo, hi))
-    config.device, config.tilt_cooldown_ms = device, cooldown
+    config.devices, config.tilt_cooldown_ms = _parse_devices(settings), cooldown
     if version == VERSION:
-        config.apps = _parse_apps(data, config.warnings)
+        config.mice = _parse_profiles(data, "mice", config.warnings)
+        config.apps = _parse_profiles(data, "apps", config.warnings)
     return config
 
 
@@ -230,25 +312,35 @@ def load(path=None):
     return parse(data)
 
 
+def _dump_profiles(table_name, profiles):
+    lines = []
+    for key, profile in profiles.items():
+        lines += ["", f"[{table_name}.{json.dumps(key, ensure_ascii=False)}]"]
+        if profile.name:
+            lines.append(f"name = {json.dumps(profile.name, ensure_ascii=False)}")
+        lines += [f"{t} = {profile.buttons[t].to_toml()}" for t in TRIGGERS if t in profile.buttons]
+    return lines
+
+
 def dumps(config):
     lines = [
         "# Configuração do mousemap. Pode ser editada aqui ou pelo app \"mousemap\".",
         "# Ações: \"default\", \"none\", { preset = \"...\" }, { keys = \"ctrl+c\" },",
-        "#        { cmd = \"comando\" }, { click = \"middle\" }",
+        "#        { macro = \"ctrl+c, 100ms, ctrl+v\" }, { cmd = \"comando\" },",
+        "#        { click = \"middle\" }, { scroll = \"up\" }",
         f"version = {VERSION}",
         "",
         "[settings]",
-        f"device = {json.dumps(config.device, ensure_ascii=False)}",
+        f"devices = {json.dumps(config.devices, ensure_ascii=False)}",
         f"tilt_cooldown_ms = {config.tilt_cooldown_ms}",
         "",
         "[buttons]",
     ]
-    lines += [f"{t} = {config.buttons[t].to_toml()}" for t in TRIGGERS]
-    for app_id, profile in config.apps.items():
-        lines += ["", f"[apps.{json.dumps(app_id, ensure_ascii=False)}]"]
-        if profile.name:
-            lines.append(f"name = {json.dumps(profile.name, ensure_ascii=False)}")
-        lines += [f"{t} = {profile.buttons[t].to_toml()}" for t in TRIGGERS if t in profile.buttons]
+    # Gatilhos extras só aparecem quando configurados (RF-62).
+    lines += [f"{t} = {config.buttons[t].to_toml()}" for t in TRIGGERS
+              if t in PRIMARY_TRIGGERS or config.buttons[t] != Action()]
+    lines += _dump_profiles("mice", config.mice)
+    lines += _dump_profiles("apps", config.apps)
     return "\n".join(lines) + "\n"
 
 

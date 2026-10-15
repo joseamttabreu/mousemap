@@ -45,6 +45,11 @@
     <category>HardwareSettings</category>
   </categories>
   <releases>
+    <release version="0.5.0" date="2026-10-15">
+      <description>
+        <p>Macros, rolagem, clique do meio e botões extras 6 a 8; vários mouses ao mesmo tempo, com perfil por mouse.</p>
+      </description>
+    </release>
     <release version="0.4.0" date="2026-10-15">
       <description>
         <p>Perfis por aplicativo: cada aplicativo pode ter o próprio mapeamento, com a extensão do GNOME Shell.</p>

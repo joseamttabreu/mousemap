@@ -37,8 +37,9 @@ class DeviceTest(unittest.TestCase):
         mx = mice[1]
         self.assertEqual(mx.bus, "bluetooth")
         self.assertEqual(mx.path, "/dev/input/event24")
-        self.assertEqual(mx.triggers, ("tilt_left", "tilt_right", "side_back", "side_forward"))
-        self.assertEqual(mice[0].triggers, ())
+        self.assertEqual(mx.triggers, ("tilt_left", "tilt_right", "side_back", "side_forward", "middle",
+                                       "btn_forward", "btn_back", "btn_task"))
+        self.assertEqual(mice[0].triggers, ("middle",))  # touchpad: só o clique do meio
 
     def test_pick(self):
         self.add("event10", TOUCHPAD)

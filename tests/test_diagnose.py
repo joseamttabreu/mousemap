@@ -20,9 +20,10 @@ class DiagnoseTest(unittest.TestCase):
 
     def test_summary_all_ok(self):
         lines = summarize({"tilt_left": ["REL_HWHEEL −"], "tilt_right": ["REL_HWHEEL +", "REL_HWHEEL +"],
-                           "side_back": ["BTN_SIDE"], "side_forward": ["BTN_EXTRA"]})
+                           "side_back": ["BTN_SIDE"], "side_forward": ["BTN_EXTRA"],
+                           "middle": ["BTN_MIDDLE"]})
         self.assertTrue(all("OK" in line for line in lines), lines)
-        self.assertEqual(len(lines), 4)
+        self.assertEqual(len(lines), 5)
 
     def test_summary_reports_bug_001_shape(self):
         # Forma observada no BUG-001: inclinar à esquerda chega como botão.

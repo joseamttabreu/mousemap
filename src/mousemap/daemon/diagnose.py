@@ -12,7 +12,7 @@ import time
 import evdev
 from evdev import ecodes as e
 
-from ..config import TRIGGER_LABELS, TRIGGERS
+from ..config import PRIMARY_TRIGGERS as STEPS, TRIGGER_LABELS
 from . import device
 
 WINDOW_SECONDS = 4
@@ -23,6 +23,7 @@ PROMPTS = {
     "tilt_right": "Incline a roda para a DIREITA, uma vez",
     "side_back": "Aperte o botão lateral de TRÁS, uma vez",
     "side_forward": "Aperte o botão lateral da FRENTE, uma vez",
+    "middle": "Clique com a RODA (clique do meio), uma vez",
 }
 # O que src/mousemap/daemon/engine.py espera para cada gatilho.
 EXPECTED = {
@@ -30,6 +31,7 @@ EXPECTED = {
     "tilt_right": "REL_HWHEEL +",
     "side_back": "BTN_SIDE",
     "side_forward": "BTN_EXTRA",
+    "middle": "BTN_MIDDLE",
 }
 
 
@@ -50,7 +52,7 @@ def signature(ev):
 def summarize(observed):
     """{gatilho: [assinaturas]} -> linhas do relatório."""
     lines = []
-    for trigger in TRIGGERS:
+    for trigger in STEPS:
         got = list(dict.fromkeys(observed.get(trigger, [])))
         label = f"{TRIGGER_LABELS[trigger]:22}"
         if not got:
@@ -60,7 +62,7 @@ def summarize(observed):
         else:
             lines.append(f"{label} DIFERENTE: recebido {', '.join(got)} (esperado {EXPECTED[trigger]})")
     seen = {}
-    for trigger in TRIGGERS:
+    for trigger in STEPS:
         for sig in dict.fromkeys(observed.get(trigger, [])):
             seen.setdefault(sig, []).append(TRIGGER_LABELS[trigger])
     for sig, triggers in seen.items():
@@ -115,7 +117,7 @@ def run(wanted_device=""):
         print(f"\nMouse: {dev.name} ({dev.path})")
         print(f"Para cada passo: pressione Enter e faça a ação em até {WINDOW_SECONDS} s. O movimento é ignorado.\n")
         observed = {}
-        for trigger in TRIGGERS:
+        for trigger in STEPS:
             _discard_typed_input()  # um Enter a mais no passo anterior não pode iniciar este
             input(f"{PROMPTS[trigger]}. [Enter para começar] ")
             observed[trigger] = _collect(dev)

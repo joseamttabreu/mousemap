@@ -55,7 +55,7 @@ class ConfigTest(unittest.TestCase):
                    '[buttons]\ntilt_left = { preset = "workspace-prev" }\nside_back = { cmd = "echo oi" }\n'
                    'side_forward = "none"\ntilt_right = { click = "middle" }\n')
         c = cfg.load(self.path)
-        self.assertEqual((c.device, c.tilt_cooldown_ms), ("X", 500))
+        self.assertEqual((c.devices, c.tilt_cooldown_ms), (["X"], 500))  # "device" do formato antigo
         self.assertEqual(c.buttons["tilt_left"], Action("preset", "workspace-prev"))
         self.assertEqual(c.buttons["side_back"].compile(), ("cmd", "echo oi"))
         self.assertEqual(c.buttons["side_forward"].compile(), ("none", None))
@@ -66,7 +66,7 @@ class ConfigTest(unittest.TestCase):
                    '[settings]\ndevice = "MX Anywhere 2S Mouse"\ntilt_cooldown_ms = 350\n')
         c = cfg.load(self.path)
         self.assertEqual(c.buttons["tilt_left"], Action("keys", "super+PAGEUP"))
-        self.assertEqual(c.device, "MX Anywhere 2S Mouse")
+        self.assertEqual(c.devices, ["MX Anywhere 2S Mouse"])
 
     def test_errors(self):
         cases = {
@@ -87,11 +87,11 @@ class ConfigTest(unittest.TestCase):
             self.assertIn(expected, str(ctx.exception))
 
     def test_unknown_keys_are_warnings(self):
-        self.write('version = 2\nfoo = 1\n[buttons]\nmiddle = "none"\n')
+        self.write('version = 2\nfoo = 1\n[buttons]\nwheel_up = "none"\n')
         self.assertEqual(len(cfg.load(self.path).warnings), 2)
 
     def test_save_roundtrip(self):
-        c = cfg.Config(device='Mouse "aspas" \\ á', tilt_cooldown_ms=800)
+        c = cfg.Config(devices=['Mouse "aspas" \\ á', "Outro"], tilt_cooldown_ms=800)
         c.buttons["side_back"] = Action("cmd", 'notify-send "olá"')
         c.buttons["tilt_left"] = Action("keys", "ctrl+alt+LEFT")
         c.buttons["tilt_right"] = Action("none")

@@ -398,7 +398,7 @@ Cobertura mínima: 85% em `config`, `keys` e `engine`.
 | M2 GUI MVP | Janela, diálogo, captura de atalho, identificar, testar, banners | Feito em 15/10/2026 (0.2.0) |
 | M3 Empacotamento | meson, RPM, Copr, traduções pt-BR/en | Feito em 15/10/2026 (0.3.0): RPM gerado e instalado/removido num contêiner Fedora 44 limpo. Pendente: publicar no Copr e testar udev/polkit/systemd numa máquina real instalada pelo RPM |
 | M4 Perfis por app | Extensão GNOME Shell + perfis na config e na GUI (§14) | Feito em 15/10/2026 (0.4.0); extensão testada com gjs e daemon real, falta validar dentro do GNOME Shell |
-| M5 Extras | Macros, mais botões, vários mouses | Conforme demanda |
+| M5 Extras | Macros, mais botões, vários mouses (§15) | Feito em 15/10/2026 (0.5.0); integração com dois mouses virtuais testada |
 
 ## 13. Riscos e questões em aberto
 
@@ -472,3 +472,47 @@ tilt_right = { keys = "ctrl+TAB" }
 - UUID `mousemap@joseamttabreu.github.com`, GNOME Shell 50, módulo ES, sem preferências.
 - Instalada em `/usr/share/gnome-shell/extensions/` pelo RPM e em `~/.local/share/gnome-shell/extensions/` pelo `install-dev.sh`. No Wayland, extensão nova só é detectada após sair e entrar na sessão.
 - Chamada D-Bus assíncrona e sem ativação automática (`NO_AUTO_START`): foco não deve iniciar o daemon.
+
+## 15. M5 — Macros, mais botões e vários mouses
+
+Três extensões do mesmo modelo: novos tipos de ação, novos gatilhos e mais de um mouse capturado ao mesmo tempo. Tudo continua na versão 2 da configuração; o que é novo é opcional.
+
+### Ações novas (RF-41)
+
+| Ação | Forma | Regras |
+|---|---|---|
+| Macro | `{ macro = "ctrl+c, 100ms, alt+TAB, 150ms, ctrl+v" }` | Passos separados por vírgula: atalho ou pausa `<n>ms`. 1 a 20 passos, ao menos um atalho, pausa de 10 a 5000 ms, total de pausas ≤ 10 s. Sem pausa explícita, 15 ms entre atalhos. Dispara no aperto; não repete enquanto estiver rodando. |
+| Rolagem | `{ scroll = "up" }` | `up`, `down`, `left`, `right`: um passo de rolagem (normal + alta resolução) pelo mouse virtual. |
+
+- **RF-60** Macro roda sem bloquear o serviço (agendada no loop principal). Desconectar o mouse, recarregar a configuração ou encerrar o serviço cancela a macro em andamento e solta qualquer tecla.
+- **RF-61** A GUI edita a macro como texto e permite **gravar um passo** pressionando o atalho, que é acrescentado ao fim.
+
+### Gatilhos novos
+
+| Gatilho | Evento | Na GUI |
+|---|---|---|
+| `middle` | `BTN_MIDDLE` | Sempre visível ("Clique do meio") |
+| `btn_forward` · `btn_back` · `btn_task` | `BTN_FORWARD` · `BTN_BACK` · `BTN_TASK` (botões HID 6, 7, 8) | Em "Outros botões", recolhido: só existem em alguns mouses |
+
+- **RF-62** O arquivo grava sempre os 5 gatilhos principais e os 3 extras só quando diferentes de `"default"`.
+- O botão abaixo da roda do MX Anywhere 2S (troca do modo da roda) continua fora: só é acessível via HID++.
+
+### Vários mouses (RF-42)
+
+```toml
+[settings]
+devices = ["MX Anywhere 2S Mouse", "Logitech M720 Triathlon"]   # vazio = automático
+
+[mice."Logitech M720 Triathlon"]      # só o que muda neste mouse
+side_back = { preset = "back" }
+```
+
+- **RF-63** `settings.devices` lista os mouses capturados; vazio = o primeiro mouse com botões extras (comportamento anterior). `settings.device` (texto, formato anterior) ainda é lido e vira uma lista de um item.
+- **RF-64** Ação efetiva = `[buttons]` ⊕ `[mice."<mouse>"]` ⊕ `[apps."<app em foco>"]`: o perfil do aplicativo vale para todos os mouses; o do mouse, para todos os aplicativos.
+- **RF-65** Cada mouse tem captura, mouse virtual e motor próprios; o teclado virtual é um só. Um mouse desconectar não afeta os outros.
+- **RF-66** A GUI troca o seletor único por uma lista de mouses com chave "Usar"; perfis de mouse aparecem no seletor de perfil quando há dois ou mais mouses marcados.
+- **RF-67** `TestProfileAction` aceita `mouse:<nome>` como perfil; o status ganha `devices` (lista dos mouses capturados).
+
+### Testes de integração com dispositivos reais
+
+Mouses de origem virtuais (uinput) num barramento D-Bus isolado: o teste captura com exclusividade o teclado e os mouses virtuais do serviço de teste, então nenhum evento chega à sessão gráfica. Pula quando não há acesso a `/dev/uinput` (ex.: `%check` do RPM).

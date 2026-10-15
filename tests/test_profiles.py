@@ -91,8 +91,8 @@ class ProfileConfigTest(unittest.TestCase):
             self.assertIn(expected, str(ctx.exception))
 
     def test_unknown_button_in_profile_is_warning(self):
-        c = self.load('version = 2\n[apps."x"]\nmiddle = "none"\n')
-        self.assertTrue(any("apps.x.middle" in w for w in c.warnings))
+        c = self.load('version = 2\n[apps."x"]\nwheel_up = "none"\n')
+        self.assertTrue(any("apps.x.wheel_up" in w for w in c.warnings))
 
     def test_v1_ignores_apps(self):
         c = self.load('tilt_left = "none"\n')

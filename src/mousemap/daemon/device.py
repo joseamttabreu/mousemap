@@ -9,6 +9,9 @@ from evdev import ecodes as e
 VIRTUAL_PREFIX = "mousemap"  # nossos próprios dispositivos virtuais nunca são candidatos
 SYS_INPUT = Path("/sys/class/input")
 BUSES = {0x03: "usb", 0x05: "bluetooth", 0x11: "ps2", 0x18: "i2c", 0x19: "host"}
+BUTTONS = ((e.BTN_SIDE, "side_back"), (e.BTN_EXTRA, "side_forward"), (e.BTN_MIDDLE, "middle"),
+           (e.BTN_FORWARD, "btn_forward"), (e.BTN_BACK, "btn_back"), (e.BTN_TASK, "btn_task"))
+EXTRA_BUTTONS = {"side_back", "side_forward", "tilt_left"}  # o que faz um mouse ter "botões extras"
 
 
 @dataclass(frozen=True)
@@ -52,10 +55,9 @@ def read_mouse(node, sys_root=SYS_INPUT):
     triggers = []
     if _has(rel_bits, e.REL_HWHEEL):
         triggers += ["tilt_left", "tilt_right"]
-    if _has(key_bits, e.BTN_SIDE):
-        triggers.append("side_back")
-    if _has(key_bits, e.BTN_EXTRA):
-        triggers.append("side_forward")
+    for code, trigger in BUTTONS:
+        if _has(key_bits, code):
+            triggers.append(trigger)
     return MouseInfo(name, f"/dev/input/{node}", BUSES.get(bus, f"0x{bus:02x}"), tuple(triggers))
 
 
@@ -69,7 +71,15 @@ def list_mice(sys_root=SYS_INPUT):
 
 
 def pick(mice, wanted=""):
-    """Escolhe o mouse: pelo nome configurado; sem nome, o primeiro com botões extras."""
+    """Escolhe um mouse: pelo nome configurado; sem nome, o primeiro com botões extras."""
     if wanted:
         return next((m for m in mice if m.name == wanted), None)
-    return next((m for m in mice if m.triggers), mice[0] if mice else None)
+    return next((m for m in mice if EXTRA_BUTTONS & set(m.triggers)), mice[0] if mice else None)
+
+
+def pick_many(mice, wanted):
+    """Mouses a capturar: os nomes configurados que estão conectados; lista vazia = automático (um só)."""
+    if not wanted:
+        chosen = pick(mice)
+        return [chosen] if chosen else []
+    return [m for m in mice if m.name in wanted]
