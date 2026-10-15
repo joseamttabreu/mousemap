@@ -1,7 +1,8 @@
 project('mousemap',
   version: '0.3.0',
   meson_version: '>= 1.0',
-  license: 'MIT',  # TODO: provisória (SPEC §13)
+  license: 'MIT',
+  license_files: 'LICENSE',
 )
 
 python = import('python').find_installation('python3')

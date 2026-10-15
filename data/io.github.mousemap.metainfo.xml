@@ -2,7 +2,6 @@
 <component type="desktop-application">
   <id>io.github.mousemap</id>
   <metadata_license>CC0-1.0</metadata_license>
-  <!-- TODO: licença do projeto ainda não definida (SPEC §13); MIT é provisória. -->
   <project_license>MIT</project_license>
   <name>mousemap</name>
   <url type="homepage">https://github.com/joseamttabreu/mousemap</url>

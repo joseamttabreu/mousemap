@@ -3,7 +3,6 @@ Version:        0.3.0
 Release:        1%{?dist}
 Summary:        Remap extra mouse buttons on Linux, with a GTK interface
 
-# TODO: licença ainda não definida (SPEC §13); MIT é provisória.
 License:        MIT
 URL:            https://github.com/joseamttabreu/mousemap
 Source0:        %{name}-%{version}.tar.gz
@@ -63,6 +62,7 @@ udevadm trigger --subsystem-match=input --property-match=ID_INPUT_MOUSE=1 >/dev/
 %udev_rules_update
 
 %files -f %{name}.lang
+%license LICENSE
 %doc README.md SPEC.md BUGS.md
 %{_bindir}/mousemap
 %{_bindir}/mousemapd

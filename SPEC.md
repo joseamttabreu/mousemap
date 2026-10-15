@@ -416,7 +416,6 @@ Cobertura mínima: 85% em `config`, `keys` e `engine`.
 ### Questões em aberto
 
 - Nome definitivo e id do app (`io.github.mousemap` supõe hospedagem no GitHub).
-- Licença do projeto: MIT está provisória no `meson.build`, no `.spec` e no metainfo.
 - Repositório: https://github.com/joseamttabreu/mousemap (privado). Para o Copr, precisa ser público.
 - Suportar KDE Plasma já no MVP ou só testar depois?
 - Quais ações padrão vêm de fábrica? (protótipo: áreas de trabalho na inclinação, voltar/avançar nas laterais)
