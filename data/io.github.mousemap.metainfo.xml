@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.mousemap</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <!-- TODO: licença do projeto ainda não definida (SPEC §13); MIT é provisória. -->
+  <project_license>MIT</project_license>
+  <name>mousemap</name>
+  <url type="homepage">https://github.com/joseamttabreu/mousemap</url>
+  <url type="bugtracker">https://github.com/joseamttabreu/mousemap/issues</url>
+  <summary>Escolha o que cada botão extra do mouse faz</summary>
+  <summary xml:lang="en">Choose what each extra mouse button does</summary>
+  <developer id="io.github.mousemap">
+    <name>mousemap</name>
+  </developer>
+  <description>
+    <p>
+      O mousemap troca a função dos botões extras do mouse — a inclinação da roda e os botões
+      laterais — por atalhos de teclado, comandos ou outros cliques. Funciona no GNOME com Wayland.
+    </p>
+    <p xml:lang="en">
+      mousemap changes what the extra mouse buttons do — wheel tilt and side buttons — into keyboard
+      shortcuts, commands or other clicks. Works on GNOME with Wayland.
+    </p>
+    <ul>
+      <li>Ações prontas: trocar de área de trabalho, volume, mídia, copiar e colar</li>
+      <li xml:lang="en">Preset actions: switch workspace, volume, media, copy and paste</li>
+      <li>Grave atalhos pressionando as teclas</li>
+      <li xml:lang="en">Record shortcuts by pressing the keys</li>
+      <li>Identifique cada botão apertando-o no mouse</li>
+      <li xml:lang="en">Identify each button by pressing it on the mouse</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">io.github.mousemap.desktop</launchable>
+  <translation type="gettext">mousemap</translation>
+  <provides>
+    <binary>mousemap</binary>
+    <binary>mousemapd</binary>
+  </provides>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <content_rating type="oars-1.1"/>
+  <categories>
+    <category>Settings</category>
+    <category>HardwareSettings</category>
+  </categories>
+  <releases>
+    <release version="0.3.0" date="2026-10-15">
+      <description>
+        <p>Empacotamento RPM, tradução para inglês e ícone próprio.</p>
+      </description>
+    </release>
+    <release version="0.2.0" date="2026-10-15">
+      <description>
+        <p>Serviço com D-Bus e interface gráfica.</p>
+      </description>
+    </release>
+  </releases>
+</component>

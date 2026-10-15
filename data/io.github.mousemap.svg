@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- corpo do mouse -->
+  <rect x="34" y="10" width="60" height="108" rx="30" fill="#3584e4"/>
+  <rect x="34" y="10" width="60" height="104" rx="30" fill="#62a0ea"/>
+  <!-- divisão dos botões -->
+  <path d="M64 10v42" stroke="#1c71d8" stroke-width="3"/>
+  <path d="M34 52h60" stroke="#1c71d8" stroke-width="3"/>
+  <!-- roda -->
+  <rect x="58" y="22" width="12" height="22" rx="6" fill="#f6f5f4" stroke="#1c71d8" stroke-width="2"/>
+  <!-- setas de inclinação -->
+  <path d="M48 33l-8 0m0 0l4-4m-4 4l4 4" stroke="#f6f5f4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M80 33l8 0m0 0l-4-4m4 4l-4 4" stroke="#f6f5f4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- botões laterais -->
+  <rect x="28" y="60" width="8" height="14" rx="3" fill="#e5a50a"/>
+  <rect x="28" y="78" width="8" height="14" rx="3" fill="#e5a50a"/>
+</svg>

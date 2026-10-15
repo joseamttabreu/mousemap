@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=mousemap
+GenericName=Botões do mouse
+GenericName[en]=Mouse Buttons
+Comment=Escolha o que cada botão extra do mouse faz
+Comment[en]=Choose what each extra mouse button does
+Exec=@BINDIR@/mousemap
+Icon=io.github.mousemap
+Terminal=false
+Categories=Settings;HardwareSettings;GTK;
+Keywords=mouse;botões;logitech;remapear;atalho;
+Keywords[en]=mouse;buttons;logitech;remap;shortcut;
+StartupNotify=true

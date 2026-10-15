@@ -1,0 +1,4 @@
+# mousemap: acesso do usuário da sessão ativa ao uinput e aos mouses (não a teclados).
+# Precisa vir antes do 73-seat-late.rules, que aplica a tag uaccess.
+KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_INPUT_MOUSE}=="1", TAG+="uaccess"

@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=io.github.mousemap.Daemon
+Exec=@BINDIR@/mousemapd
+SystemdService=mousemapd.service

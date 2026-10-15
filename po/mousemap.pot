@@ -1,0 +1,511 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the mousemap package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: mousemap 0.3.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-15 15:04-0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: src/mousemap/config.py:20
+msgid "Roda para a esquerda"
+msgstr ""
+
+#: src/mousemap/config.py:21
+msgid "Roda para a direita"
+msgstr ""
+
+#: src/mousemap/config.py:22
+msgid "Lateral de trás"
+msgstr ""
+
+#: src/mousemap/config.py:23
+msgid "Lateral da frente"
+msgstr ""
+
+#: src/mousemap/config.py:27
+msgid "Clique esquerdo"
+msgstr ""
+
+#: src/mousemap/config.py:28
+msgid "Clique direito"
+msgstr ""
+
+#: src/mousemap/config.py:29
+msgid "Clique do meio"
+msgstr ""
+
+#: src/mousemap/config.py:30
+msgid "Botão voltar"
+msgstr ""
+
+#: src/mousemap/config.py:31
+msgid "Botão avançar"
+msgstr ""
+
+#: src/mousemap/config.py:36 src/mousemap/config.py:105
+msgid "Padrão"
+msgstr ""
+
+#: src/mousemap/config.py:37 src/mousemap/config.py:107
+msgid "Desativado"
+msgstr ""
+
+#: src/mousemap/config.py:38
+msgid "Ação pronta"
+msgstr ""
+
+#: src/mousemap/config.py:39
+msgid "Atalho de teclado"
+msgstr ""
+
+#: src/mousemap/config.py:40 src/mousemap/gui/action_dialog.py:48
+msgid "Comando"
+msgstr ""
+
+#: src/mousemap/config.py:41
+msgid "Outro clique"
+msgstr ""
+
+#: src/mousemap/config.py:68
+msgid "use \"default\", \"none\" ou uma tabela como { keys = \"ctrl+c\" }"
+msgstr ""
+
+#: src/mousemap/config.py:71 src/mousemap/config.py:96
+#, python-brace-format
+msgid "tipo de ação desconhecido: {}"
+msgstr ""
+
+#: src/mousemap/config.py:73
+#, python-brace-format
+msgid "{} precisa de um texto não vazio"
+msgstr ""
+
+#: src/mousemap/config.py:86
+#, python-brace-format
+msgid "ação pronta desconhecida: {}"
+msgstr ""
+
+#: src/mousemap/config.py:94
+#, python-brace-format
+msgid "clique deve ser um de: {}"
+msgstr ""
+
+#: src/mousemap/config.py:113
+#, python-brace-format
+msgid "Comando: {}"
+msgstr ""
+
+#: src/mousemap/config.py:135
+msgid "[buttons] deve ser uma tabela"
+msgstr ""
+
+#: src/mousemap/config.py:137
+#, python-brace-format
+msgid "versão de configuração não suportada: {}"
+msgstr ""
+
+#: src/mousemap/config.py:140
+#, python-brace-format
+msgid "chave desconhecida ignorada: {}"
+msgstr ""
+
+#: src/mousemap/config.py:142
+#, python-brace-format
+msgid "botão desconhecido ignorado: {}"
+msgstr ""
+
+#: src/mousemap/config.py:152
+msgid "[settings] deve ser uma tabela"
+msgstr ""
+
+#: src/mousemap/config.py:155
+msgid "settings.device deve ser texto"
+msgstr ""
+
+#: src/mousemap/config.py:159
+#, python-brace-format
+msgid "settings.tilt_cooldown_ms deve ser um inteiro entre {} e {}"
+msgstr ""
+
+#: src/mousemap/config.py:173
+#, python-brace-format
+msgid "TOML inválido: {}"
+msgstr ""
+
+#: src/mousemap/daemon/main.py:261 src/mousemap/daemon/main.py:282
+msgid "serviço sem acesso ao /dev/uinput"
+msgstr ""
+
+#: src/mousemap/daemon/main.py:280
+#, python-brace-format
+msgid "gatilho desconhecido: {}"
+msgstr ""
+
+#: src/mousemap/daemon/main.py:284
+msgid "este botão está no comportamento padrão ou desativado"
+msgstr ""
+
+#: src/mousemap/gui/action_dialog.py:15
+msgid "Grave ou digite um atalho"
+msgstr ""
+
+#: src/mousemap/gui/action_dialog.py:15
+msgid "Digite um comando"
+msgstr ""
+
+#: src/mousemap/gui/action_dialog.py:30 src/mousemap/gui/window.py:323
+msgid "Cancelar"
+msgstr ""
+
+#: src/mousemap/gui/action_dialog.py:32
+msgid "Salvar"
+msgstr ""
+
+#: src/mousemap/gui/action_dialog.py:38
+msgid "Tipo de ação"
+msgstr ""
+
+#: src/mousemap/gui/action_dialog.py:40
+msgid "Ação"
+msgstr ""
+
+#: src/mousemap/gui/action_dialog.py:42 src/mousemap/gui/action_dialog.py:167
+msgid "Atalho (ex.: ctrl+shift+t)"
+msgstr ""
+
+#: src/mousemap/gui/action_dialog.py:44
+msgid "Gravar atalho pressionando as teclas"
+msgstr ""
+
+#: src/mousemap/gui/action_dialog.py:50 src/mousemap/gui/action_dialog.py:141
+msgid "Escolher programa"
+msgstr ""
+
+#: src/mousemap/gui/action_dialog.py:53
+msgid "Clique"
+msgstr ""
+
+#: src/mousemap/gui/action_dialog.py:59
+msgid "Resultado"
+msgstr ""
+
+#: src/mousemap/gui/action_dialog.py:158
+msgid "Pressione as teclas… (Esc cancela)"
+msgstr ""
+
+#: src/mousemap/gui/window.py:18
+msgid "Integrado"
+msgstr ""
+
+#: src/mousemap/gui/window.py:67 src/mousemap/gui/window.py:277
+msgid "Restaurar padrões"
+msgstr ""
+
+#: src/mousemap/gui/window.py:68
+msgid "Abrir arquivo de configuração"
+msgstr ""
+
+#: src/mousemap/gui/window.py:69
+msgid "Sobre o mousemap"
+msgstr ""
+
+#: src/mousemap/gui/window.py:71
+msgid "Menu"
+msgstr ""
+
+#: src/mousemap/gui/window.py:78
+msgid "Mouse"
+msgstr ""
+
+#: src/mousemap/gui/window.py:79 src/mousemap/gui/window.py:234
+msgid "Automático"
+msgstr ""
+
+#: src/mousemap/gui/window.py:80
+msgid "Dispositivo"
+msgstr ""
+
+#: src/mousemap/gui/window.py:85
+msgid "Botões"
+msgstr ""
+
+#: src/mousemap/gui/window.py:86
+msgid "Clique em um botão para escolher o que ele faz."
+msgstr ""
+
+#: src/mousemap/gui/window.py:87
+msgid "Identificar botão"
+msgstr ""
+
+#: src/mousemap/gui/window.py:88
+msgid "Aperte um botão do mouse para encontrá-lo na lista"
+msgstr ""
+
+#: src/mousemap/gui/window.py:94
+msgid "Testar"
+msgstr ""
+
+#: src/mousemap/gui/window.py:103
+msgid "Ajustes"
+msgstr ""
+
+#: src/mousemap/gui/window.py:106
+msgid "Repetição da inclinação"
+msgstr ""
+
+#: src/mousemap/gui/window.py:107
+msgid "Intervalo, em milissegundos, com a roda mantida inclinada"
+msgstr ""
+
+#: src/mousemap/gui/window.py:110
+msgid "Iniciar com a sessão"
+msgstr ""
+
+#: src/mousemap/gui/window.py:111
+msgid "Liga o remapeamento automaticamente ao entrar"
+msgstr ""
+
+#: src/mousemap/gui/window.py:147
+msgid "Aplicado"
+msgstr ""
+
+#: src/mousemap/gui/window.py:151
+#, python-brace-format
+msgid "Não foi possível salvar: {}"
+msgstr ""
+
+#: src/mousemap/gui/window.py:155
+msgid "Salvo. Será aplicado quando o serviço iniciar."
+msgstr ""
+
+#: src/mousemap/gui/window.py:161
+#, python-brace-format
+msgid "Erro ao aplicar: {}"
+msgstr ""
+
+#: src/mousemap/gui/window.py:179
+msgid "O serviço não está rodando."
+msgstr ""
+
+#: src/mousemap/gui/window.py:204
+msgid "Não foi possível alterar a inicialização do serviço."
+msgstr ""
+
+#: src/mousemap/gui/window.py:212
+#, python-brace-format
+msgid "Não foi possível identificar: {}"
+msgstr ""
+
+#: src/mousemap/gui/window.py:218
+msgid "Aperte um botão extra do mouse…"
+msgstr ""
+
+#: src/mousemap/gui/window.py:227
+#, python-brace-format
+msgid "Detectado: {}"
+msgstr ""
+
+#: src/mousemap/gui/window.py:237
+#, python-brace-format
+msgid "{} (desconectado)"
+msgstr ""
+
+#: src/mousemap/gui/window.py:251
+msgid "Dispositivo alterado"
+msgstr ""
+
+#: src/mousemap/gui/window.py:262
+msgid "Ativo"
+msgstr ""
+
+#: src/mousemap/gui/window.py:262
+msgid "Desconectado"
+msgstr ""
+
+#: src/mousemap/gui/window.py:263
+msgid "Sem permissão"
+msgstr ""
+
+#: src/mousemap/gui/window.py:264
+msgid "nenhum mouse"
+msgstr ""
+
+#: src/mousemap/gui/window.py:266
+msgid "Serviço parado"
+msgstr ""
+
+#: src/mousemap/gui/window.py:273
+msgid "O serviço do mousemap não está rodando."
+msgstr ""
+
+#: src/mousemap/gui/window.py:273
+msgid "Iniciar"
+msgstr ""
+
+#: src/mousemap/gui/window.py:275
+msgid "Sem permissão para acessar o mouse."
+msgstr ""
+
+#: src/mousemap/gui/window.py:275
+msgid "Configurar"
+msgstr ""
+
+#: src/mousemap/gui/window.py:277
+#, python-brace-format
+msgid "Erro na configuração: {}"
+msgstr ""
+
+#: src/mousemap/gui/window.py:279
+msgid "Mouse desconectado. Ligue-o ou escolha outro."
+msgstr ""
+
+#: src/mousemap/gui/window.py:291
+msgid "Não foi possível iniciar o serviço. Ele está instalado?"
+msgstr ""
+
+#: src/mousemap/gui/window.py:301
+msgid "Script de configuração não encontrado."
+msgstr ""
+
+#: src/mousemap/gui/window.py:306
+#, python-brace-format
+msgid "Não foi possível executar: {}"
+msgstr ""
+
+#: src/mousemap/gui/window.py:313
+msgid "Permissões configuradas."
+msgstr ""
+
+#: src/mousemap/gui/window.py:315
+msgid "A configuração de permissões foi cancelada ou falhou."
+msgstr ""
+
+#: src/mousemap/gui/window.py:321
+msgid "Restaurar padrões?"
+msgstr ""
+
+#: src/mousemap/gui/window.py:322
+msgid "Todos os botões voltam ao comportamento original do mouse."
+msgstr ""
+
+#: src/mousemap/gui/window.py:324
+msgid "Restaurar"
+msgstr ""
+
+#: src/mousemap/gui/window.py:334
+msgid "Padrões restaurados"
+msgstr ""
+
+#: src/mousemap/gui/window.py:339
+msgid "Arquivo criado"
+msgstr ""
+
+#: src/mousemap/gui/window.py:344
+msgid "Escolha o que cada botão extra do mouse faz."
+msgstr ""
+
+#: src/mousemap/keys.py:28
+msgid "Espaço"
+msgstr ""
+
+#: src/mousemap/keys.py:30
+msgid "Mudo"
+msgstr ""
+
+#: src/mousemap/keys.py:31
+msgid "Reproduzir/Pausar"
+msgstr ""
+
+#: src/mousemap/keys.py:31 src/mousemap/presets.py:18
+msgid "Próxima faixa"
+msgstr ""
+
+#: src/mousemap/keys.py:31 src/mousemap/presets.py:19
+msgid "Faixa anterior"
+msgstr ""
+
+#: src/mousemap/keys.py:54
+#, python-brace-format
+msgid "tecla desconhecida: {}"
+msgstr ""
+
+#: src/mousemap/keys.py:63
+#, python-brace-format
+msgid "código de tecla desconhecido: {}"
+msgstr ""
+
+#: src/mousemap/keys.py:72
+msgid "atalho vazio"
+msgstr ""
+
+#: src/mousemap/keys.py:79
+#, python-brace-format
+msgid "atalho com mais de {} teclas"
+msgstr ""
+
+#: src/mousemap/presets.py:7
+msgid "Área de trabalho anterior"
+msgstr ""
+
+#: src/mousemap/presets.py:8
+msgid "Área de trabalho seguinte"
+msgstr ""
+
+#: src/mousemap/presets.py:9
+msgid "Visão geral das atividades"
+msgstr ""
+
+#: src/mousemap/presets.py:10
+msgid "Voltar"
+msgstr ""
+
+#: src/mousemap/presets.py:11
+msgid "Avançar"
+msgstr ""
+
+#: src/mousemap/presets.py:12
+msgid "Copiar"
+msgstr ""
+
+#: src/mousemap/presets.py:13
+msgid "Colar"
+msgstr ""
+
+#: src/mousemap/presets.py:14
+msgid "Aumentar volume"
+msgstr ""
+
+#: src/mousemap/presets.py:15
+msgid "Diminuir volume"
+msgstr ""
+
+#: src/mousemap/presets.py:16
+msgid "Silenciar"
+msgstr ""
+
+#: src/mousemap/presets.py:17
+msgid "Reproduzir/pausar"
+msgstr ""
+
+#: src/mousemap/presets.py:20
+msgid "Fechar aba"
+msgstr ""
+
+#: src/mousemap/presets.py:21
+msgid "Nova aba"
+msgstr ""
+
+#: src/mousemap/presets.py:22
+msgid "Captura de tela"
+msgstr ""

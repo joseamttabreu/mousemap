@@ -1,0 +1,6 @@
+src/mousemap/config.py
+src/mousemap/daemon/main.py
+src/mousemap/gui/action_dialog.py
+src/mousemap/gui/window.py
+src/mousemap/keys.py
+src/mousemap/presets.py

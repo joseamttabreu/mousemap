@@ -1,0 +1,21 @@
+#!/bin/bash
+# Configura as permissões do mousemap (precisa de root; a GUI chama via pkexec).
+# Instalado por pacote, as regras já estão em /usr/lib e este script só as aplica.
+set -euo pipefail
+here="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Execute como root: sudo $0" >&2
+    exit 1
+fi
+
+if [ ! -f /usr/lib/udev/rules.d/70-mousemap.rules ]; then
+    install -m 0644 "$here/70-mousemap.rules" /etc/udev/rules.d/70-mousemap.rules
+    install -m 0644 "$here/modules-load.conf" /etc/modules-load.d/mousemap.conf
+fi
+modprobe uinput
+udevadm control --reload-rules
+udevadm trigger --subsystem-match=misc --sysname-match=uinput
+udevadm trigger --subsystem-match=input --property-match=ID_INPUT_MOUSE=1
+udevadm settle
+echo "Permissões do mousemap configuradas."

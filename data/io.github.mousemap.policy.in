@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>mousemap</vendor>
+  <action id="io.github.mousemap.setup">
+    <description>Configure mouse access for mousemap</description>
+    <description xml:lang="pt_BR">Configurar o acesso ao mouse para o mousemap</description>
+    <message>Authentication is required to give mousemap access to the mouse</message>
+    <message xml:lang="pt_BR">É necessário autenticar para dar ao mousemap acesso ao mouse</message>
+    <icon_name>io.github.mousemap</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">@LIBEXECDIR@/mousemap-setup</annotate>
+  </action>
+</policyconfig>
